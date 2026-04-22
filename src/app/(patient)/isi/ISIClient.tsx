@@ -1,6 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine,
+} from 'recharts'
 import { getISISeverity, type ISISeverity } from '@/types'
 
 interface ISIRecord {
@@ -59,6 +63,14 @@ export default function ISIClient({ patientId, history }: ISIClientProps) {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ total: number; severity: ISISeverity } | null>(null)
   const [localHistory, setLocalHistory] = useState(history)
+
+  const chartData = useMemo(() =>
+    [...localHistory].reverse().map((r) => ({
+      date: r.assessed_at.slice(5, 10),
+      score: r.total_score ?? 0,
+    })),
+    [localHistory]
+  )
 
   const allAnswered = Object.values(answers).every((v) => v !== null)
   const totalPreview = allAnswered
@@ -177,10 +189,32 @@ export default function ISIClient({ patientId, history }: ISIClientProps) {
         </button>
       </div>
 
-      {/* 이력 */}
+      {/* 이력 그래프 */}
+      {localHistory.length > 1 && (
+        <section className="card space-y-2">
+          <h2 className="text-sm font-semibold text-gray-700">📈 점수 추이</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData} margin={{ top: 8, right: 16, left: -24, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis domain={[0, 28]} ticks={[0, 7, 14, 21, 28]} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v: number) => [v, 'ISI 점수']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+              <ReferenceLine y={21} stroke="#ef4444" strokeDasharray="5 5" strokeWidth={1.5} label={{ value: '심각', position: 'insideTopRight', fontSize: 9, fill: '#ef4444' }} />
+              <ReferenceLine y={14} stroke="#f97316" strokeDasharray="5 5" strokeWidth={1.5} label={{ value: '중등도', position: 'insideTopRight', fontSize: 9, fill: '#f97316' }} />
+              <ReferenceLine y={7}  stroke="#eab308" strokeDasharray="5 5" strokeWidth={1.5} label={{ value: '경미', position: 'insideTopRight', fontSize: 9, fill: '#eab308' }} />
+              <Line type="monotone" dataKey="score" stroke="#4A90D9" strokeWidth={2.5}
+                dot={{ r: 4, fill: '#4A90D9', stroke: 'white', strokeWidth: 1.5 }}
+                activeDot={{ r: 6, stroke: '#4A90D9', strokeWidth: 2, fill: 'white' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+      )}
+
+      {/* 이력 목록 */}
       {localHistory.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-gray-700">📈 이전 결과</h2>
+          <h2 className="text-sm font-semibold text-gray-700">이전 결과</h2>
           <div className="space-y-2">
             {localHistory.slice(0, 10).map((rec) => {
               const score = rec.total_score ?? 0

@@ -21,20 +21,30 @@ export default async function RecordsPage() {
 
   const patientId = userRole.patient_id
 
-  const [{ data: diaries }, { data: isiList }] = await Promise.all([
+  const [{ data: diaries }, { data: exams }, { data: isiList }] = await Promise.all([
     supabase
       .from('sleep_diary')
-      .select('id, diary_date, bedtime, wake_time, sleep_onset_latency, night_awakening_count, sleep_quality, morning_fatigue, total_sleep_min')
+      .select('id, diary_date, bedtime, wake_time, sleep_onset_latency, night_awakening_count, sleep_quality, condition, total_sleep_min, deep_sleep_min, light_sleep_min, rem_sleep_min')
       .eq('patient_id', patientId)
       .order('diary_date', { ascending: false })
-      .limit(28),
+      .limit(90),
+    supabase
+      .from('exam_results')
+      .select('id, exam_date, exam_type, summary, result_data')
+      .eq('patient_id', patientId)
+      .order('exam_date', { ascending: false }),
     supabase
       .from('isi_assessments')
       .select('id, assessed_at, total_score')
       .eq('patient_id', patientId)
-      .order('assessed_at', { ascending: false })
-      .limit(10),
+      .order('assessed_at', { ascending: false }),
   ])
 
-  return <RecordsClient diaries={diaries ?? []} isiList={isiList ?? []} />
+  return (
+    <RecordsClient
+      diaries={diaries ?? []}
+      exams={exams ?? []}
+      isiList={isiList ?? []}
+    />
+  )
 }
