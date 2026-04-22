@@ -1,15 +1,13 @@
-import { redirect } from 'next/navigation'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import ISIClient from './ISIClient'
 
-export default async function ISIPage() {
+export async function GET() {
   const supabase = await createClient()
 
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser()
-  if (!user || authError) redirect('/login')
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: userRole } = await supabase
     .from('user_roles')
@@ -17,19 +15,19 @@ export default async function ISIPage() {
     .eq('id', user.id)
     .single()
 
-  if (!userRole?.patient_id) redirect('/login')
+  if (!userRole?.patient_id) {
+    return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
+  }
 
-  const { data: history } = await supabase
+  const { data, error } = await supabase
     .from('isi_assessments')
     .select('id, assessed_at, q1, q2, q3, q4, q5, q6, q7, total_score')
     .eq('patient_id', userRole.patient_id)
     .order('assessed_at', { ascending: false })
-    .limit(20)
+    .limit(1)
+    .maybeSingle()
 
-  return (
-    <ISIClient
-      patientId={userRole.patient_id}
-      history={history ?? []}
-    />
-  )
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ assessment: data })
 }
