@@ -1,0 +1,54 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Pretendard Variable', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --background: #FFFFFF;
+  --foreground: #1A202C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-500 text-white font-medium text-base py-3 px-6 rounded-lg hover:bg-brand-600 active:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-500 transition-colors;
+    min-height: 48px;
+  }
+  .btn-secondary {
+    @apply bg-white text-brand-500 border border-brand-500 font-medium text-base py-3 px-6 rounded-lg hover:bg-brand-50 active:bg-brand-100 transition-colors;
+    min-height: 48px;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-gray-600 font-medium text-sm py-2 px-4 rounded-md hover:bg-gray-100 transition-colors;
+  }
+  .card {
+    @apply bg-white rounded-xl p-4;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .card-highlight {
+    @apply bg-white rounded-xl p-4 border border-brand-200;
+    box-shadow: 0 2px 8px rgba(74,144,217,0.1);
+  }
+  .card-stat { @apply bg-bg-secondary rounded-lg p-3 flex items-center gap-3; }
+  .select-btn { @apply bg-gray-100 text-gray-600 text-sm py-2 px-3 rounded-lg hover:bg-gray-200 transition-colors; }
+  .select-btn-active { @apply bg-brand-500 text-white; }
+  .badge-success  { @apply bg-green-50 text-green-600 text-xs px-2 py-0.5 rounded-full border border-green-200; }
+  .badge-warning  { @apply bg-yellow-50 text-yellow-600 text-xs px-2 py-0.5 rounded-full border border-yellow-200; }
+  .badge-orange   { @apply bg-orange-50 text-orange-600 text-xs px-2 py-0.5 rounded-full border border-orange-200; }
+  .badge-danger   { @apply bg-red-50 text-red-600 text-xs px-2 py-0.5 rounded-full border border-red-200; }
+}
