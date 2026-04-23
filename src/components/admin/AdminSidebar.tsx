@@ -25,7 +25,7 @@ export default function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-60 bg-gray-50 border-r border-gray-200 flex flex-col z-20">
+    <aside className="w-60 shrink-0 bg-gray-50 border-r border-gray-200 flex flex-col h-screen sticky top-0 z-20">
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-200 shrink-0">
         <Moon className="text-brand-500 shrink-0" size={20} />
         <div>
