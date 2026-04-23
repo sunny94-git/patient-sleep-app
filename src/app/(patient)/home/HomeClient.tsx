@@ -11,7 +11,9 @@ import {
   Sunset,
   Bell,
   BellOff,
+  LogOut,
 } from 'lucide-react'
+import { logoutAction } from '@/app/login/actions'
 
 interface TodayDiary {
   id: string
@@ -132,9 +134,18 @@ export default function HomeClient({
       {/* 인사 헤더 */}
       <div className="flex items-center gap-2">
         <GreetingIcon className="text-brand-500" size={22} />
-        <h1 className="text-h2 text-gray-900">
+        <h1 className="text-h2 text-gray-900 flex-1">
           {patientName}님, {greetingText}
         </h1>
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="로그아웃"
+          >
+            <LogOut size={18} />
+          </button>
+        </form>
       </div>
 
       {/* 오늘의 할 일 */}

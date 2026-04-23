@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DiaryForm from './DiaryForm'
+import DiaryCalendarClient from './DiaryCalendarClient'
 
 function getKSTDate(): string {
   const now = new Date()
@@ -8,7 +9,11 @@ function getKSTDate(): string {
   return new Date(kstMs).toISOString().slice(0, 10)
 }
 
-export default async function DiaryPage() {
+export default async function DiaryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>
+}) {
   const supabase = await createClient()
 
   const {
@@ -27,13 +32,29 @@ export default async function DiaryPage() {
 
   const patientId = userRole.patient_id
   const today = getKSTDate()
+  const { date } = await searchParams
+
+  if (!date) {
+    const { data: diaryRows } = await supabase
+      .from('sleep_diary')
+      .select('diary_date')
+      .eq('patient_id', patientId)
+      .order('diary_date', { ascending: false })
+
+    const diaryDates = diaryRows?.map((r) => r.diary_date as string) ?? []
+    return <DiaryCalendarClient diaryDates={diaryDates} today={today} />
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) {
+    redirect('/diary')
+  }
 
   const [existingDiaryRes, prescriptionRes] = await Promise.all([
     supabase
       .from('sleep_diary')
       .select('*')
       .eq('patient_id', patientId)
-      .eq('diary_date', today)
+      .eq('diary_date', date)
       .maybeSingle(),
     supabase
       .from('treatment_records')
@@ -45,7 +66,7 @@ export default async function DiaryPage() {
   return (
     <DiaryForm
       patientId={patientId}
-      today={today}
+      today={date}
       existingDiary={existingDiaryRes.data}
       hasPrescription={(prescriptionRes.data?.length ?? 0) > 0}
     />

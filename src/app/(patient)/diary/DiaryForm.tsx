@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Check, Moon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Moon, Trash2 } from 'lucide-react'
 
 interface DiaryData {
   bedtime: string
@@ -165,6 +165,7 @@ export default function DiaryForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const isEditing = !!existingDiary?.id
   const diaryId = existingDiary?.id
@@ -214,9 +215,27 @@ export default function DiaryForm({
         throw new Error(err.error ?? '저장에 실패했습니다.')
       }
       setSubmitted(true)
-      setTimeout(() => router.push('/home'), 1800)
+      setTimeout(() => router.push('/diary'), 1800)
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/diary/${diaryId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? '삭제에 실패했습니다.')
+      }
+      router.push('/diary')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '삭제에 실패했습니다.')
+      setShowDeleteConfirm(false)
     } finally {
       setLoading(false)
     }
@@ -244,7 +263,7 @@ export default function DiaryForm({
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <button
-          onClick={() => (step > 0 ? setStep((s) => s - 1) : router.push('/home'))}
+          onClick={() => (step > 0 ? setStep((s) => s - 1) : router.push('/diary'))}
           className="p-1.5 -ml-1.5 text-gray-500 hover:text-gray-900"
           aria-label="뒤로"
         >
@@ -256,12 +275,47 @@ export default function DiaryForm({
           </h1>
           <p className="text-xs text-gray-400">{today} · {step + 1}/{totalSteps}단계</p>
         </div>
+        {isEditing && (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-1.5 text-gray-400 hover:text-red-500"
+            aria-label="일지 삭제"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
         <Moon className="text-brand-500" size={20} />
       </div>
 
+      {/* Delete confirm overlay */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+          <div className="w-full max-w-[430px] bg-white rounded-t-2xl px-4 pt-6 pb-8 space-y-4">
+            <p className="text-base font-semibold text-gray-900 text-center">일지를 삭제할까요?</p>
+            <p className="text-sm text-gray-500 text-center">삭제하면 복구할 수 없어요.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="btn-secondary flex-1"
+                disabled={loading}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
+                disabled={loading}
+              >
+                {loading ? '삭제 중...' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <StepIndicator current={step} />
 
-      <div className="px-4 pb-32 space-y-4">
+      <div className="px-4 pb-40 space-y-4">
         {/* ─── Step 0: 기본 수면 정보 ─── */}
         {step === 0 && (
           <>
@@ -494,9 +548,10 @@ export default function DiaryForm({
         )}
       </div>
 
-      {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-100 px-4 py-3 space-y-2"
-        style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}
+      {/* Bottom navigation — sits above the fixed tab bar */}
+      <div
+        className="fixed left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-100 px-4 pt-3 pb-3 space-y-2 z-20"
+        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
       >
         {error && (
           <p className="text-sm text-red-600 text-center">{error}</p>
