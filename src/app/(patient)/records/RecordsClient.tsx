@@ -135,10 +135,11 @@ function SleepTab({ diaries }: { diaries: DiaryRecord[] }) {
       const dur = rec ? calcDuration(rec) : null
       return {
         label: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()],
+        dayIndex: d.getDay(),
         duration: dur !== null ? Math.round((dur / 60) * 10) / 10 : 0,
         hasData: !!rec,
       }
-    })
+    }).sort((a, b) => a.dayIndex - b.dayIndex)
   }, [diaries])
 
   const conditionData = useMemo(() =>
