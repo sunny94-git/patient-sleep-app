@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="antialiased">
-        <div className="mx-auto max-w-[430px] min-h-screen">{children}</div>
+        {children}
       </body>
     </html>
   );
