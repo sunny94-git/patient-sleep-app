@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { calcSleepEfficiency, getSleepEfficiencyLevel, getISISeverity, type ISISeverity } from '@/types'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 
 interface DiaryRecord {
   id: string
@@ -517,8 +518,11 @@ function ISITab({ isiList }: { isiList: ISIRecord[] }) {
 
   if (isiList.length === 0) {
     return (
-      <div className="card text-center py-10">
-        <p className="text-sm text-gray-400">아직 자가진단 기록이 없어요.<br />자가진단 탭에서 ISI를 작성해 보세요.</p>
+      <div className="card text-center py-10 space-y-3">
+        <p className="text-sm text-gray-400">아직 자가진단 기록이 없어요.</p>
+        <Link href="/isi" className="inline-block btn-primary text-sm px-5 py-2">
+          ISI 자가진단 하러 가기
+        </Link>
       </div>
     )
   }
@@ -529,6 +533,9 @@ function ISITab({ isiList }: { isiList: ISIRecord[] }) {
 
   return (
     <div className="space-y-4">
+      <Link href="/isi" className="w-full btn-primary flex items-center justify-center gap-2 text-sm">
+        ISI 자가진단 새로 작성하기
+      </Link>
       {/* 최근 점수 */}
       <div className={`card border-2 ${SEVERITY_STYLE[latestSeverity].bar.replace('bg-', 'border-')}`}>
         <div className="flex items-center justify-between">

@@ -1,14 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BarChart3, Pill, ClipboardCheck, MessageCircle } from "lucide-react";
+import { Home, BookOpen, BarChart3, Pill, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/home", label: "홈", icon: Home },
+  { href: "/diary", label: "일지", icon: BookOpen },
   { href: "/records", label: "기록", icon: BarChart3 },
   { href: "/prescription", label: "처방", icon: Pill },
-  { href: "/isi", label: "자가진단", icon: ClipboardCheck },
   { href: "/qna", label: "문의", icon: MessageCircle },
 ];
 
