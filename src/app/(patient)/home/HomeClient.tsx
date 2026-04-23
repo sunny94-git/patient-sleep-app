@@ -36,6 +36,7 @@ interface YesterdayDiary {
 interface HomeClientProps {
   patientName: string
   todayDiary: TodayDiary | null
+  today: string
   hasPrescription: boolean
   yesterdayDiary: YesterdayDiary | null
   yesterdayEfficiency: number | null
@@ -65,6 +66,7 @@ function getGreeting(): { text: string; Icon: React.ElementType } {
 export default function HomeClient({
   patientName,
   todayDiary: initialDiary,
+  today,
   hasPrescription,
   yesterdayDiary,
   yesterdayEfficiency,
@@ -140,10 +142,10 @@ export default function HomeClient({
         <form action={logoutAction}>
           <button
             type="submit"
-            className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="로그아웃"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg hover:bg-red-50 transition-colors"
           >
-            <LogOut size={18} />
+            <LogOut size={14} />
+            로그아웃
           </button>
         </form>
       </div>
@@ -162,20 +164,18 @@ export default function HomeClient({
             )}
             <span
               className={`text-sm ${
-                diaryWritten ? 'text-gray-400 line-through' : 'text-gray-800 font-medium'
+                diaryWritten ? 'text-gray-500' : 'text-gray-800 font-medium'
               }`}
             >
-              수면 일지 작성하기
+              수면 일지 {diaryWritten ? '작성 완료' : '작성하기'}
             </span>
           </div>
-          {!diaryWritten && (
-            <Link
-              href="/diary"
-              className="flex items-center gap-0.5 text-xs font-medium text-brand-500 shrink-0"
-            >
-              작성하기 <ChevronRight size={14} />
-            </Link>
-          )}
+          <Link
+            href={diaryWritten ? `/diary?date=${today}` : '/diary'}
+            className="flex items-center gap-0.5 text-xs font-medium text-brand-500 shrink-0"
+          >
+            {diaryWritten ? '수정하기' : '작성하기'} <ChevronRight size={14} />
+          </Link>
         </div>
 
         {/* 복약 체크 - 처방 환자 + 일지 작성 완료 시 노출 */}

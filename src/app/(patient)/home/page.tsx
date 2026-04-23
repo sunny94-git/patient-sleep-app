@@ -91,6 +91,7 @@ export default async function HomePage() {
     <HomeClient
       patientName={patientName}
       todayDiary={todayDiary}
+      today={today}
       hasPrescription={hasPrescription}
       yesterdayDiary={yesterdayDiary ? {
         bedtime: yesterdayDiary.bedtime,
