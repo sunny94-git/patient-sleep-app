@@ -58,7 +58,7 @@ export default async function HomePage() {
         .limit(1),
       supabase
         .from('settings')
-        .select('push_enabled')
+        .select('push_enabled, diary_remind, med_alarm, qna_alarm')
         .eq('id', user.id)
         .maybeSingle(),
     ])
@@ -68,6 +68,9 @@ export default async function HomePage() {
   const yesterdayDiary = yesterdayDiaryRes.data
   const hasPrescription = (prescriptionRes.data?.length ?? 0) > 0
   const pushEnabled = settingsRes.data?.push_enabled ?? false
+  const diaryRemind = settingsRes.data?.diary_remind ?? false
+  const medAlarm = settingsRes.data?.med_alarm ?? false
+  const qnaAlarm = settingsRes.data?.qna_alarm ?? false
 
   let yesterdayEfficiency: number | null = null
   let yesterdayEfficiencyLevel: string | null = null
@@ -102,6 +105,9 @@ export default async function HomePage() {
       yesterdayEfficiencyLevel={yesterdayEfficiencyLevel}
       yesterdaySleepDuration={yesterdaySleepDuration}
       pushEnabled={pushEnabled}
+      diaryRemind={diaryRemind}
+      medAlarm={medAlarm}
+      qnaAlarm={qnaAlarm}
     />
   )
 }

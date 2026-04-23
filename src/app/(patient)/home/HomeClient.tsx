@@ -43,6 +43,9 @@ interface HomeClientProps {
   yesterdayEfficiencyLevel: string | null
   yesterdaySleepDuration: string | null
   pushEnabled: boolean
+  diaryRemind: boolean
+  medAlarm: boolean
+  qnaAlarm: boolean
 }
 
 type MedType = 'herbal' | 'western'
@@ -53,6 +56,58 @@ const TIMING_LABEL: Record<MedTiming, string> = {
   lunch: '점심',
   evening: '저녁',
   bedtime: '취침전',
+}
+
+function Toggle({
+  checked,
+  loading,
+  onChange,
+}: {
+  checked: boolean
+  loading: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      disabled={loading}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+        checked ? 'bg-brand-500' : 'bg-gray-200'
+      } ${loading ? 'opacity-50' : ''}`}
+      role="switch"
+      aria-checked={checked}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  )
+}
+
+function SubToggle({
+  label,
+  description,
+  checked,
+  loading,
+  onChange,
+}: {
+  label: string
+  description: string
+  checked: boolean
+  loading: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-gray-700">{label}</p>
+        <p className="text-xs text-gray-400">{description}</p>
+      </div>
+      <Toggle checked={checked} loading={loading} onChange={onChange} />
+    </div>
+  )
 }
 
 function getGreeting(): { text: string; Icon: React.ElementType } {
@@ -73,13 +128,19 @@ export default function HomeClient({
   yesterdayEfficiencyLevel,
   yesterdaySleepDuration,
   pushEnabled: initialPushEnabled,
+  diaryRemind: initialDiaryRemind,
+  medAlarm: initialMedAlarm,
+  qnaAlarm: initialQnaAlarm,
 }: HomeClientProps) {
   const { text: greetingText, Icon: GreetingIcon } = getGreeting()
 
   const [diary, setDiary] = useState(initialDiary)
   const [medLoading, setMedLoading] = useState<string | null>(null)
   const [pushEnabled, setPushEnabled] = useState(initialPushEnabled)
-  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [diaryRemind, setDiaryRemind] = useState(initialDiaryRemind)
+  const [medAlarm, setMedAlarm] = useState(initialMedAlarm)
+  const [qnaAlarm, setQnaAlarm] = useState(initialQnaAlarm)
+  const [settingsLoading, setSettingsLoading] = useState<string | null>(null)
 
   const diaryWritten = !!diary
 
@@ -103,17 +164,17 @@ export default function HomeClient({
     }
   }
 
-  async function togglePushEnabled() {
-    setSettingsLoading(true)
+  async function patchSetting(field: string, value: boolean, setter: (v: boolean) => void) {
+    setSettingsLoading(field)
     try {
       const res = await fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ push_enabled: !pushEnabled }),
+        body: JSON.stringify({ [field]: value }),
       })
-      if (res.ok) setPushEnabled((prev) => !prev)
+      if (res.ok) setter(value)
     } finally {
-      setSettingsLoading(false)
+      setSettingsLoading(null)
     }
   }
 
@@ -278,6 +339,7 @@ export default function HomeClient({
       <section className="card space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">⚙️ 알림 설정</h2>
 
+        {/* 마스터 토글 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {pushEnabled ? (
@@ -285,24 +347,40 @@ export default function HomeClient({
             ) : (
               <BellOff className="text-gray-400 shrink-0" size={16} />
             )}
-            <span className="text-sm text-gray-700">앱 알림 허용</span>
+            <span className="text-sm font-medium text-gray-800">앱 알림 허용</span>
           </div>
-          <button
-            onClick={togglePushEnabled}
-            disabled={settingsLoading}
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-              pushEnabled ? 'bg-brand-500' : 'bg-gray-200'
-            } ${settingsLoading ? 'opacity-50' : ''}`}
-            aria-label="알림 허용 토글"
-            role="switch"
-            aria-checked={pushEnabled}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                pushEnabled ? 'translate-x-6' : 'translate-x-1'
-              }`}
+          <Toggle
+            checked={pushEnabled}
+            loading={settingsLoading === 'push_enabled'}
+            onChange={(v) => patchSetting('push_enabled', v, setPushEnabled)}
+          />
+        </div>
+
+        {/* 세부 알림 항목 */}
+        <div className={`space-y-2.5 border-t border-gray-100 pt-2.5 ${!pushEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
+          <SubToggle
+            label="수면 일지 작성 알림"
+            description="매일 아침 일지 작성을 알려드려요"
+            checked={diaryRemind}
+            loading={settingsLoading === 'diary_remind'}
+            onChange={(v) => patchSetting('diary_remind', v, setDiaryRemind)}
+          />
+          {hasPrescription && (
+            <SubToggle
+              label="복약 알림"
+              description="복약 시간에 맞춰 알려드려요"
+              checked={medAlarm}
+              loading={settingsLoading === 'med_alarm'}
+              onChange={(v) => patchSetting('med_alarm', v, setMedAlarm)}
             />
-          </button>
+          )}
+          <SubToggle
+            label="Q&A 답변 알림"
+            description="의료진 답변이 등록되면 알려드려요"
+            checked={qnaAlarm}
+            loading={settingsLoading === 'qna_alarm'}
+            onChange={(v) => patchSetting('qna_alarm', v, setQnaAlarm)}
+          />
         </div>
       </section>
     </div>
