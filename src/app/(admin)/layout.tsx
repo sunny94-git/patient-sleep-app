@@ -3,11 +3,14 @@ import AdminHeader from '@/components/admin/AdminHeader'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div
+      className="min-h-screen bg-gray-100"
+      style={{ display: 'grid', gridTemplateColumns: '240px 1fr' }}
+    >
       <AdminSidebar />
-      <div className="flex flex-col flex-1 w-0 min-w-0">
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <AdminHeader />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main style={{ flex: 1 }}>
           {children}
         </main>
       </div>
