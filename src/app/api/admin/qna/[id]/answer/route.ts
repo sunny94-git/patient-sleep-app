@@ -8,6 +8,13 @@ async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) 
   return data?.role === 'admin' ? user : null
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return PATCH(request, { params })
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
