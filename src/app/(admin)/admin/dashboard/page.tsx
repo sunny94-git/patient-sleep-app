@@ -140,22 +140,22 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="p-6 space-y-5">
-      {/* KPI 카드 */}
-      <div className="grid grid-cols-4 gap-4">
+    <div className="p-6 space-y-5 w-full">
+      {/* KPI 카드 — 모바일 2열, 데스크탑 4열 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map(({ label, value, sub }) => (
-          <div key={label} className="bg-brand-500 rounded-xl p-5 text-white">
-            <p className="text-sm font-medium text-blue-100 mb-2">{label}</p>
+          <div key={label} className="bg-brand-500 rounded-xl p-5 text-white min-w-0">
+            <p className="text-sm font-medium text-blue-100 mb-2 whitespace-nowrap">{label}</p>
             <p className="text-4xl font-bold tabular-nums">{value}</p>
-            <p className="text-xs text-blue-200 mt-1.5">{sub}</p>
+            <p className="text-xs text-blue-200 mt-1.5 whitespace-nowrap">{sub}</p>
           </div>
         ))}
       </div>
 
-      {/* 차트 */}
-      <div className="grid grid-cols-5 gap-4">
+      {/* 차트 — 모바일 1열, 데스크탑 5열 */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* 주간 수면효율 바 차트 */}
-        <div className="col-span-3 bg-white rounded-xl p-5 shadow-card">
+        <div className="lg:col-span-3 bg-white rounded-xl p-5 shadow-card">
           <h2 className="text-sm font-semibold text-gray-800 mb-4">
             주간 수면효율 (Weekly Sleep Efficiency)
           </h2>
@@ -163,16 +163,14 @@ export default async function DashboardPage() {
         </div>
 
         {/* ISI 점수 분포 파이 차트 */}
-        <div className="col-span-2 bg-white rounded-xl p-5 shadow-card">
-          <h2 className="text-sm font-semibold text-gray-800 mb-4">
-            ISI 점수 분포
-          </h2>
+        <div className="lg:col-span-2 bg-white rounded-xl p-5 shadow-card">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">ISI 점수 분포</h2>
           <IsiDistributionChart data={isiDistData} />
         </div>
       </div>
 
       {/* 최근 환자 목록 */}
-      <div className="bg-white rounded-xl shadow-card overflow-hidden">
+      <div className="bg-white rounded-xl shadow-card overflow-x-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-800">최근 환자 목록</h2>
           <Link href="/admin/patients" className="text-xs text-brand-500 hover:underline">
