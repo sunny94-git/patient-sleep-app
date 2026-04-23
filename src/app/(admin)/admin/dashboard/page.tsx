@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/supabase/admin'
 import { calcSleepEfficiency, getISISeverity } from '@/types'
 import { WeeklyEfficiencyChart, IsiDistributionChart } from '@/components/admin/DashboardCharts'
 import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 
 function getKSTDate(offsetDays = 0): string {
   const now = new Date()
@@ -215,12 +216,12 @@ export default async function DashboardPage() {
                   : 'bg-red-500'
 
                 return (
-                  <tr
-                    key={p.id}
-                    className="hover:bg-blue-50 cursor-pointer transition-colors"
-                    onClick={() => { window.location.href = `/admin/patients/${p.id}` }}
-                  >
-                    <td className="px-5 py-3 text-sm font-medium text-gray-900">{p.name}</td>
+                  <tr key={p.id} className="hover:bg-blue-50 transition-colors">
+                    <td className="px-5 py-3">
+                      <Link href={`/admin/patients/${p.id}`} className="text-sm font-medium text-gray-900 hover:text-brand-500">
+                        {p.name}
+                      </Link>
+                    </td>
                     <td className="px-5 py-3 text-sm text-gray-600">
                       {p.age !== null ? `${p.age}세` : '—'}
                     </td>
