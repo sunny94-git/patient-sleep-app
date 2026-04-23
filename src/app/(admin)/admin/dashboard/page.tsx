@@ -1,6 +1,6 @@
 import { requireAdmin } from '@/lib/supabase/admin'
-import { calcSleepEfficiency, getSleepEfficiencyLevel } from '@/types'
-import { BookOpen, Pill, Calendar, MessageCircle, AlertTriangle, Clock, ChevronRight } from 'lucide-react'
+import { calcSleepEfficiency, getISISeverity } from '@/types'
+import { WeeklyEfficiencyChart, IsiDistributionChart } from '@/components/admin/DashboardCharts'
 import Link from 'next/link'
 
 function getKSTDate(offsetDays = 0): string {
@@ -11,284 +11,254 @@ function getKSTDate(offsetDays = 0): string {
   return kst.toISOString().slice(0, 10)
 }
 
-function getWeekRange(): { start: string; end: string } {
-  const todayStr = getKSTDate(0)
-  const d = new Date(todayStr)
-  const day = d.getDay()
-  const start = new Date(d)
-  start.setDate(d.getDate() - day)
-  const end = new Date(d)
-  end.setDate(d.getDate() + (6 - day))
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  }
+function calcAge(birthDate: string | null): number | null {
+  if (!birthDate) return null
+  const today = new Date()
+  const birth = new Date(birthDate)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
 }
+
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
 export default async function DashboardPage() {
   const { supabase } = await requireAdmin()
   const today = getKSTDate(0)
-  const threeDaysAgo = getKSTDate(-3)
   const sevenDaysAgo = getKSTDate(-7)
-  const fourteenDaysAgo = getKSTDate(-14)
-  const { start: weekStart, end: weekEnd } = getWeekRange()
 
-  const [patientsRes, diaryRes, qnaRes, visitsRes] = await Promise.all([
-    supabase.from('patients').select('id, name, registration_number'),
+  const [patientsRes, diaryRes, qnaRes, isiRes] = await Promise.all([
+    supabase.from('patients').select('id, name, birth_date, registration_number'),
     supabase
       .from('sleep_diary')
       .select('patient_id, diary_date, bedtime, wake_time, sleep_onset_latency, night_awakening_count')
-      .gte('diary_date', fourteenDaysAgo)
+      .gte('diary_date', sevenDaysAgo)
       .order('diary_date', { ascending: false }),
     supabase.from('qna').select('id', { count: 'exact' }).eq('is_answered', false),
     supabase
-      .from('treatment_records')
-      .select('patient_id, next_visit_date, treatment_notes')
-      .gte('next_visit_date', weekStart)
-      .lte('next_visit_date', weekEnd)
-      .order('next_visit_date'),
+      .from('isi_assessments')
+      .select('patient_id, total_score, assessed_at')
+      .order('assessed_at', { ascending: false }),
   ])
 
   const patients = patientsRes.data ?? []
   const diaries = diaryRes.data ?? []
   const unansweredCount = qnaRes.count ?? 0
-  const visits = visitsRes.data ?? []
+  const isiAll = isiRes.data ?? []
 
-  // 환자별 최근 일지일 계산
-  const latestDiaryByPatient = new Map<string, string>()
-  for (const d of diaries) {
-    if (!latestDiaryByPatient.has(d.patient_id)) {
-      latestDiaryByPatient.set(d.patient_id, d.diary_date)
+  // 환자별 최신 ISI
+  const latestIsiByPatient = new Map<string, number>()
+  for (const r of isiAll) {
+    if (!latestIsiByPatient.has(r.patient_id)) {
+      latestIsiByPatient.set(r.patient_id, r.total_score)
     }
   }
 
-  // 최근 3일 일지 작성 환자
-  const hasRecentDiary = new Set(
-    diaries.filter((d) => d.diary_date >= threeDaysAgo).map((d) => d.patient_id)
+  // ISI 고위험 (22 이상)
+  const isiHighRiskCount = [...latestIsiByPatient.values()].filter((s) => s >= 22).length
+
+  // KPI: 오늘 신규 (오늘 이후 다음방문 또는 오늘 최초 일지 작성자 — 여기서는 오늘 일지 작성 환자)
+  const todayDiaryPatients = new Set(
+    diaries.filter((d) => d.diary_date === today).map((d) => d.patient_id)
   )
-  const diaryMissingCount = patients.filter((p) => !hasRecentDiary.has(p.id)).length
+  const todayActiveCount = todayDiaryPatients.size
 
-  // 미활동 환자 (7일 이상 미작성)
-  const inactivePatients = patients
-    .map((p) => {
-      const latest = latestDiaryByPatient.get(p.id) ?? null
-      const daysSince = latest
-        ? Math.floor((new Date(today).getTime() - new Date(latest).getTime()) / 86400000)
-        : 999
-      return { ...p, daysSince, latest }
-    })
-    .filter((p) => p.daysSince >= 7)
-    .sort((a, b) => b.daysSince - a.daysSince)
-    .slice(0, 8)
-
-  // 이번 주 재방문 환자 이름 매핑
-  const patientMap = new Map(patients.map((p) => [p.id, p]))
-
-  // 수면 효율 저하 환자 (최근 7일)
-  const diaryByPatient7d = new Map<string, typeof diaries>()
+  // 주간 수면효율 (최근 7일, 요일별 평균)
+  const dayEfficiencyMap = new Map<number, number[]>()
   for (const d of diaries) {
-    if (d.diary_date < sevenDaysAgo) continue
-    if (!diaryByPatient7d.has(d.patient_id)) diaryByPatient7d.set(d.patient_id, [])
-    diaryByPatient7d.get(d.patient_id)!.push(d)
+    const eff = calcSleepEfficiency(d)
+    if (eff === null) continue
+    const dayIdx = new Date(d.diary_date).getDay()
+    if (!dayEfficiencyMap.has(dayIdx)) dayEfficiencyMap.set(dayIdx, [])
+    dayEfficiencyMap.get(dayIdx)!.push(eff)
   }
 
-  const lowEfficiencyPatients = patients
+  // 최근 7일의 날짜 기반으로 요일 순서 생성
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - 6 + i)
+    return { date: d.toISOString().slice(0, 10), dayIdx: d.getDay() }
+  })
+
+  const weeklyEfficiencyData = last7Days.map(({ date, dayIdx }) => {
+    const entries = diaries
+      .filter((d) => d.diary_date === date)
+      .map((d) => calcSleepEfficiency(d))
+      .filter((e): e is number => e !== null)
+    const avg = entries.length > 0
+      ? Math.round(entries.reduce((a, b) => a + b, 0) / entries.length)
+      : null
+    return { day: DAY_LABELS[dayIdx], value: avg }
+  })
+
+  // ISI 분포
+  const isiCounts = { none: 0, mild: 0, moderate: 0, severe: 0 }
+  for (const score of latestIsiByPatient.values()) {
+    const s = getISISeverity(score)
+    if (s === '없음') isiCounts.none++
+    else if (s === '경미') isiCounts.mild++
+    else if (s === '중등도') isiCounts.moderate++
+    else isiCounts.severe++
+  }
+
+  const isiDistData = [
+    { name: '정상 (0~7)', value: isiCounts.none, color: '#22C55E' },
+    { name: '경도 (8~14)', value: isiCounts.mild, color: '#EAB308' },
+    { name: '중등도 (15~21)', value: isiCounts.moderate, color: '#F97316' },
+    { name: '고위험 (22~28)', value: isiCounts.severe, color: '#EF4444' },
+  ]
+
+  // 최근 환자 목록 (최근 일지 작성 순)
+  const patientDiaryMap = new Map<string, typeof diaries>()
+  for (const d of diaries) {
+    if (!patientDiaryMap.has(d.patient_id)) patientDiaryMap.set(d.patient_id, [])
+    patientDiaryMap.get(d.patient_id)!.push(d)
+  }
+
+  const recentPatients = patients
+    .filter((p) => patientDiaryMap.has(p.id))
     .map((p) => {
-      const entries = diaryByPatient7d.get(p.id) ?? []
-      const efficiencies = entries
-        .map((d) => calcSleepEfficiency(d))
-        .filter((e): e is number => e !== null)
-      if (efficiencies.length === 0) return null
-      const avg = Math.round(efficiencies.reduce((a, b) => a + b, 0) / efficiencies.length)
-      return { ...p, avgEfficiency: avg, level: getSleepEfficiencyLevel(avg) }
+      const entries = patientDiaryMap.get(p.id) ?? []
+      const latestDate = entries[0]?.diary_date ?? null
+      const effs = entries.map((d) => calcSleepEfficiency(d)).filter((e): e is number => e !== null)
+      const avgEff = effs.length > 0
+        ? Math.round(effs.reduce((a, b) => a + b, 0) / effs.length)
+        : null
+      const isiScore = latestIsiByPatient.get(p.id) ?? null
+      return { ...p, latestDate, avgEff, isiScore, age: calcAge(p.birth_date) }
     })
-    .filter((p): p is NonNullable<typeof p> => p !== null && p.avgEfficiency < 85)
-    .sort((a, b) => a.avgEfficiency - b.avgEfficiency)
-    .slice(0, 5)
+    .sort((a, b) => (b.latestDate ?? '').localeCompare(a.latestDate ?? ''))
+    .slice(0, 8)
 
   const kpiCards = [
-    {
-      icon: BookOpen,
-      label: '일지 미작성 (3일)',
-      value: diaryMissingCount,
-      sub: `전체 ${patients.length}명 중`,
-      color: diaryMissingCount > 0 ? 'text-orange-600' : 'text-green-600',
-    },
-    {
-      icon: Calendar,
-      label: '이번 주 재방문',
-      value: visits.length,
-      sub: `${weekStart} ~ ${weekEnd}`,
-      color: 'text-blue-600',
-    },
-    {
-      icon: MessageCircle,
-      label: '미답변 Q&A',
-      value: unansweredCount,
-      sub: '답변 대기 중',
-      color: unansweredCount > 0 ? 'text-red-600' : 'text-green-600',
-    },
-    {
-      icon: Pill,
-      label: '총 환자 수',
-      value: patients.length,
-      sub: '등록된 환자',
-      color: 'text-brand-600',
-    },
+    { label: '총 환자수', value: patients.length, sub: '등록된 전체 환자' },
+    { label: '오늘 활동', value: todayActiveCount, sub: '오늘 일지 작성 환자' },
+    { label: '미답변 문의', value: unansweredCount, sub: '답변 대기 중인 Q&A' },
+    { label: 'ISI 고위험', value: isiHighRiskCount, sub: 'ISI 22점 이상 환자' },
   ]
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-xl font-bold text-gray-900">대시보드</h1>
-
+    <div className="p-6 space-y-5">
       {/* KPI 카드 */}
       <div className="grid grid-cols-4 gap-4">
-        {kpiCards.map(({ icon: Icon, label, value, sub, color }) => (
-          <div key={label} className="bg-white rounded-xl p-5 shadow-card">
-            <div className="flex items-center gap-2 mb-3">
-              <Icon size={16} className="text-gray-400" />
-              <span className="text-xs text-gray-500 font-medium">{label}</span>
-            </div>
-            <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-1">{sub}</p>
+        {kpiCards.map(({ label, value, sub }) => (
+          <div key={label} className="bg-brand-500 rounded-xl p-5 text-white">
+            <p className="text-sm font-medium text-blue-100 mb-2">{label}</p>
+            <p className="text-4xl font-bold tabular-nums">{value}</p>
+            <p className="text-xs text-blue-200 mt-1.5">{sub}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {/* 미활동 환자 알림 */}
-        <div className="bg-white rounded-xl shadow-card overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
-            <AlertTriangle size={16} className="text-orange-500" />
-            <h2 className="text-sm font-semibold text-gray-800">미활동 환자 알림</h2>
-          </div>
-          {inactivePatients.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-center text-gray-400">
-              모든 환자가 정상적으로 기록 중입니다 ✅
-            </p>
-          ) : (
-            <ul className="divide-y divide-gray-50">
-              {inactivePatients.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={`/admin/patients/${p.id}`}
-                    className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                          p.daysSince >= 14 ? 'bg-red-500' : 'bg-yellow-400'
-                        }`}
-                      />
-                      <span className="text-sm font-medium text-gray-900">{p.name}</span>
-                      <span className="text-xs text-gray-400">#{p.registration_number}</span>
-                    </div>
-                    <span
-                      className={`text-xs font-medium ${
-                        p.daysSince >= 14 ? 'text-red-500' : 'text-yellow-600'
-                      }`}
-                    >
-                      {p.daysSince === 999 ? '기록 없음' : `${p.daysSince}일 미작성`}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+      {/* 차트 */}
+      <div className="grid grid-cols-5 gap-4">
+        {/* 주간 수면효율 바 차트 */}
+        <div className="col-span-3 bg-white rounded-xl p-5 shadow-card">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">
+            주간 수면효율 (Weekly Sleep Efficiency)
+          </h2>
+          <WeeklyEfficiencyChart data={weeklyEfficiencyData} />
         </div>
 
-        <div className="space-y-4">
-          {/* 이번 주 재방문 예정 */}
-          <div className="bg-white rounded-xl shadow-card overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
-              <Clock size={16} className="text-blue-500" />
-              <h2 className="text-sm font-semibold text-gray-800">이번 주 재방문 예정</h2>
-            </div>
-            {visits.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-center text-gray-400">
-                이번 주 재방문 예정 환자가 없습니다.
-              </p>
-            ) : (
-              <ul className="divide-y divide-gray-50">
-                {visits.slice(0, 5).map((v, i) => {
-                  const p = patientMap.get(v.patient_id)
-                  return (
-                    <li key={i}>
-                      <Link
-                        href={`/admin/patients/${v.patient_id}`}
-                        className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-                      >
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">
-                            {p?.name ?? '알 수 없음'}
-                          </span>
-                          {v.treatment_notes && (
-                            <p className="text-xs text-gray-400 mt-0.5">{v.treatment_notes}</p>
-                          )}
-                        </div>
-                        <span className="text-xs font-medium text-blue-600 shrink-0">
-                          {v.next_visit_date}
-                        </span>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-
-          {/* 수면 효율 저하 환자 */}
-          <div className="bg-white rounded-xl shadow-card overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
-              <span className="text-sm font-semibold text-gray-800">📉 수면 효율 저하 (최근 7일)</span>
-            </div>
-            {lowEfficiencyPatients.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-center text-gray-400">
-                수면 효율이 낮은 환자가 없습니다.
-              </p>
-            ) : (
-              <ul className="divide-y divide-gray-50">
-                {lowEfficiencyPatients.map((p) => (
-                  <li key={p.id}>
-                    <Link
-                      href={`/admin/patients/${p.id}`}
-                      className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-gray-900">{p.name}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              p.level === '불량' ? 'bg-red-500' : 'bg-yellow-400'
-                            }`}
-                            style={{ width: `${p.avgEfficiency}%` }}
-                          />
-                        </div>
-                        <span
-                          className={`text-xs font-medium w-10 text-right ${
-                            p.level === '불량' ? 'text-red-500' : 'text-yellow-600'
-                          }`}
-                        >
-                          {p.avgEfficiency}%
-                        </span>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        {/* ISI 점수 분포 파이 차트 */}
+        <div className="col-span-2 bg-white rounded-xl p-5 shadow-card">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">
+            ISI 점수 분포
+          </h2>
+          <IsiDistributionChart data={isiDistData} />
         </div>
       </div>
 
-      {/* 환자 목록 바로가기 */}
-      <Link
-        href="/admin/patients"
-        className="flex items-center justify-between bg-white rounded-xl px-5 py-4 shadow-card hover:shadow-card-hover transition-shadow"
-      >
-        <span className="text-sm font-medium text-gray-700">전체 환자 목록 보기</span>
-        <ChevronRight size={16} className="text-gray-400" />
-      </Link>
+      {/* 최근 환자 목록 */}
+      <div className="bg-white rounded-xl shadow-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-800">최근 환자 목록</h2>
+          <Link href="/admin/patients" className="text-xs text-brand-500 hover:underline">
+            전체 보기 →
+          </Link>
+        </div>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-100">
+              {['이름', '나이', '최근 방문', '수면효율 (7일)', 'ISI 점수', '상태'].map((h) => (
+                <th
+                  key={h}
+                  className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {recentPatients.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-400">
+                  최근 수면 일지 데이터가 없습니다.
+                </td>
+              </tr>
+            ) : (
+              recentPatients.map((p) => {
+                const isiLabel = p.isiScore !== null ? getISISeverity(p.isiScore) : null
+                const statusColor =
+                  isiLabel === '없음' ? 'bg-green-100 text-green-700'
+                  : isiLabel === '경미' ? 'bg-yellow-100 text-yellow-700'
+                  : isiLabel === '중등도' ? 'bg-orange-100 text-orange-700'
+                  : isiLabel === '심각' ? 'bg-red-100 text-red-700'
+                  : 'bg-gray-100 text-gray-500'
+
+                const effColor =
+                  p.avgEff === null ? 'bg-gray-200'
+                  : p.avgEff >= 85 ? 'bg-green-500'
+                  : p.avgEff >= 70 ? 'bg-yellow-400'
+                  : 'bg-red-500'
+
+                return (
+                  <tr
+                    key={p.id}
+                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                    onClick={() => { window.location.href = `/admin/patients/${p.id}` }}
+                  >
+                    <td className="px-5 py-3 text-sm font-medium text-gray-900">{p.name}</td>
+                    <td className="px-5 py-3 text-sm text-gray-600">
+                      {p.age !== null ? `${p.age}세` : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-sm text-gray-600">{p.latestDate ?? '—'}</td>
+                    <td className="px-5 py-3">
+                      {p.avgEff !== null ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${effColor}`}
+                              style={{ width: `${p.avgEff}%` }}
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700">{p.avgEff}%</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 text-sm">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-sm text-gray-700">
+                      {p.isiScore !== null ? p.isiScore : '—'}
+                    </td>
+                    <td className="px-5 py-3">
+                      {isiLabel ? (
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor}`}>
+                          {isiLabel}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-sm">—</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
