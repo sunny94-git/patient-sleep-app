@@ -53,8 +53,9 @@ export default async function HomePage() {
         .maybeSingle(),
       supabase
         .from('treatment_records')
-        .select('id')
+        .select('id, next_visit_date')
         .eq('patient_id', patientId)
+        .order('visit_date', { ascending: false })
         .limit(1),
       supabase
         .from('settings')
@@ -66,7 +67,9 @@ export default async function HomePage() {
   const patientName = patientRes.data?.name ?? '환자'
   const todayDiary = todayDiaryRes.data
   const yesterdayDiary = yesterdayDiaryRes.data
-  const hasPrescription = (prescriptionRes.data?.length ?? 0) > 0
+  const latestTreatment = prescriptionRes.data?.[0] ?? null
+  const hasPrescription = !!latestTreatment
+  const nextVisitDate = latestTreatment?.next_visit_date ?? null
   const pushEnabled = settingsRes.data?.push_enabled ?? false
   const diaryRemind = settingsRes.data?.diary_remind ?? false
   const medAlarm = settingsRes.data?.med_alarm ?? false
@@ -104,6 +107,7 @@ export default async function HomePage() {
       yesterdayEfficiency={yesterdayEfficiency}
       yesterdayEfficiencyLevel={yesterdayEfficiencyLevel}
       yesterdaySleepDuration={yesterdaySleepDuration}
+      nextVisitDate={nextVisitDate}
       pushEnabled={pushEnabled}
       diaryRemind={diaryRemind}
       medAlarm={medAlarm}

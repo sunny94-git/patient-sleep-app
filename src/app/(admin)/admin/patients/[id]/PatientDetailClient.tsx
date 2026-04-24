@@ -74,6 +74,7 @@ interface Props {
 }
 
 const TABS = [
+  { key: 'info', label: '기본정보' },
   { key: 'diary', label: '수면일지' },
   { key: 'treatment', label: '처방' },
   { key: 'exam', label: '검사결과' },
@@ -112,10 +113,136 @@ export default function PatientDetailClient({ patient, diaries, treatments, exam
         ))}
       </div>
 
+      {tab === 'info'      && <InfoTab patient={patient} />}
       {tab === 'diary'     && <DiaryTab patientId={patient.id} initialDiaries={diaries} />}
       {tab === 'treatment' && <TreatmentTab patientId={patient.id} initialTreatments={treatments} />}
       {tab === 'exam'      && <ExamTab patientId={patient.id} initialExams={exams} />}
       {tab === 'qna'       && <QnATab initialQnaList={qnaList} />}
+    </div>
+  )
+}
+
+// ─── 기본 정보 탭 ───────────────────────────────────────────────────────────
+
+const SEVERITY_OPTIONS = ['경미', '중등도', '심각']
+const DIAGNOSIS_OPTIONS = ['불면증', '수면무호흡증', '기면병', '하지불안증후군', '렘수면행동장애', '기타']
+
+function InfoTab({ patient }: { patient: Patient }) {
+  const [form, setForm] = useState({
+    name: patient.name,
+    birth_date: patient.birth_date ?? '',
+    phone: patient.phone ?? '',
+    diagnosis: '',
+    severity: '중등도',
+    onset_date: '',
+    notes: '',
+  })
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 진단 정보 로딩
+  useState(() => {
+    fetch(`/api/admin/patients/${patient.id}`)
+      .then(r => r.json())
+      .then(({ disorder }) => {
+        if (disorder) {
+          setForm(prev => ({
+            ...prev,
+            diagnosis: disorder.diagnosis ?? '',
+            severity: disorder.severity ?? '중등도',
+            onset_date: disorder.onset_date ?? '',
+            notes: disorder.notes ?? '',
+          }))
+        }
+        setLoaded(true)
+      })
+  })
+
+  function set(key: keyof typeof form, val: string) {
+    setForm(prev => ({ ...prev, [key]: val }))
+  }
+
+  async function handleSave() {
+    if (!form.name.trim()) { setError('이름은 필수입니다.'); return }
+    setSaving(true); setError(null); setSuccess(false)
+    try {
+      const res = await fetch(`/api/admin/patients/${patient.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '저장에 실패했습니다.')
+    } finally { setSaving(false) }
+  }
+
+  const inputCls = 'w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500'
+
+  return (
+    <div className="space-y-4">
+      {/* 기본 정보 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800">기본 정보</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-xs font-medium text-gray-600 mb-1 block">등록번호</label>
+            <input value={patient.registration_number} disabled
+              className="w-full rounded-lg border border-gray-100 bg-gray-100 px-3 py-2 text-sm text-gray-400 cursor-not-allowed" />
+          </div>
+          <Field label="이름 *" value={form.name} onChange={v => set('name', v)} />
+          <Field label="생년월일" type="date" value={form.birth_date} onChange={v => set('birth_date', v)} />
+          <div className="col-span-2">
+            <Field label="연락처" value={form.phone} onChange={v => set('phone', v)} placeholder="010-0000-0000" />
+          </div>
+        </div>
+      </div>
+
+      {/* 진단 정보 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800">진단 정보</h3>
+        {!loaded ? (
+          <p className="text-xs text-gray-400">불러오는 중...</p>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">진단명</label>
+              <select value={form.diagnosis} onChange={e => set('diagnosis', e.target.value)}
+                className={inputCls}>
+                <option value="">선택하세요</option>
+                {DIAGNOSIS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">중증도</label>
+                <select value={form.severity} onChange={e => set('severity', e.target.value)} className={inputCls}>
+                  {SEVERITY_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <Field label="발병일" type="date" value={form.onset_date} onChange={v => set('onset_date', v)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">메모</label>
+              <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      {success && <p className="text-xs text-green-600">저장되었습니다.</p>}
+
+      <button onClick={handleSave} disabled={saving}
+        className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-xl transition-colors disabled:opacity-50">
+        <Save size={15} />
+        {saving ? '저장 중...' : '변경사항 저장'}
+      </button>
     </div>
   )
 }

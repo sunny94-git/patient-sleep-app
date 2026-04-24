@@ -12,6 +12,7 @@ import {
   Bell,
   BellOff,
   LogOut,
+  CalendarDays,
 } from 'lucide-react'
 import { logoutAction } from '@/app/login/actions'
 
@@ -38,6 +39,7 @@ interface HomeClientProps {
   todayDiary: TodayDiary | null
   today: string
   hasPrescription: boolean
+  nextVisitDate: string | null
   yesterdayDiary: YesterdayDiary | null
   yesterdayEfficiency: number | null
   yesterdayEfficiencyLevel: string | null
@@ -123,6 +125,7 @@ export default function HomeClient({
   todayDiary: initialDiary,
   today,
   hasPrescription,
+  nextVisitDate,
   yesterdayDiary,
   yesterdayEfficiency,
   yesterdayEfficiencyLevel,
@@ -281,6 +284,9 @@ export default function HomeClient({
         )}
       </section>
 
+      {/* 다음 방문일 */}
+      {nextVisitDate && <NextVisitCard nextVisitDate={nextVisitDate} today={today} />}
+
       {/* 어제 수면 요약 */}
       <section className="card space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">📊 어제 수면 요약</h2>
@@ -384,5 +390,47 @@ export default function HomeClient({
         </div>
       </section>
     </div>
+  )
+}
+
+function NextVisitCard({ nextVisitDate, today }: { nextVisitDate: string; today: string }) {
+  const todayDate = new Date(today)
+  const visitDate = new Date(nextVisitDate)
+  const diffMs = visitDate.getTime() - todayDate.getTime()
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+  const [y, m, d] = nextVisitDate.split('-')
+  const formatted = `${y}년 ${Number(m)}월 ${Number(d)}일`
+
+  let statusText = ''
+  let statusClass = ''
+  let cardClass = 'bg-blue-50 border border-blue-100'
+
+  if (diffDays < 0) {
+    statusText = '지난 방문일'
+    statusClass = 'text-gray-400'
+    cardClass = 'bg-gray-50 border border-gray-100'
+  } else if (diffDays === 0) {
+    statusText = '오늘 방문일이에요!'
+    statusClass = 'text-brand-600 font-semibold'
+    cardClass = 'bg-brand-50 border border-brand-200'
+  } else if (diffDays <= 3) {
+    statusText = `${diffDays}일 후 방문일`
+    statusClass = 'text-orange-600 font-medium'
+    cardClass = 'bg-orange-50 border border-orange-100'
+  } else {
+    statusText = `${diffDays}일 후`
+    statusClass = 'text-blue-600'
+  }
+
+  return (
+    <section className={`rounded-2xl p-4 flex items-center gap-3 ${cardClass}`}>
+      <CalendarDays className="text-brand-500 shrink-0" size={22} />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-500 mb-0.5">다음 방문일</p>
+        <p className="text-sm font-semibold text-gray-900">{formatted}</p>
+      </div>
+      <span className={`text-sm shrink-0 ${statusClass}`}>{statusText}</span>
+    </section>
   )
 }
