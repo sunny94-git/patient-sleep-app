@@ -1,8 +1,8 @@
-﻿export type { Database, Json } from "./database";
+export type { Database, Json } from "./database";
 
 export interface Patient { id: string; registration_number: string; name: string; birth_date?: string; phone?: string; }
 
-export interface SleepDiary { id: string; patient_id: string; diary_date: string; bedtime?: string; wake_time?: string; sleep_onset_latency?: string; night_awakening_count?: string; sleep_event_memo?: string; sleep_quality?: number; morning_fatigue?: number; daytime_sleepiness?: string; nap_taken: boolean; nap_duration_min?: number; dream?: string; caffeine?: string; alcohol: boolean; condition?: number; memo?: string; herbal_morning?: boolean; herbal_lunch?: boolean; herbal_evening?: boolean; herbal_bedtime?: boolean; western_morning?: boolean; western_lunch?: boolean; western_evening?: boolean; western_bedtime?: boolean; total_sleep_min?: number; deep_sleep_min?: number; light_sleep_min?: number; rem_sleep_min?: number; }
+export interface SleepDiary { id: string; patient_id: string; diary_date: string; bedtime?: string | null; wake_time?: string | null; sleep_onset_latency?: string | null; night_awakening_count?: string | null; sleep_event_memo?: string | null; sleep_quality?: number | null; morning_fatigue?: number | null; daytime_sleepiness?: string | null; nap_taken: boolean; nap_duration_min?: number | null; dream?: string | null; caffeine?: string | null; alcohol: boolean; condition?: number | null; memo?: string | null; herbal_morning?: boolean | null; herbal_lunch?: boolean | null; herbal_evening?: boolean | null; herbal_bedtime?: boolean | null; western_morning?: boolean | null; western_lunch?: boolean | null; western_evening?: boolean | null; western_bedtime?: boolean | null; total_sleep_min?: number | null; deep_sleep_min?: number | null; light_sleep_min?: number | null; rem_sleep_min?: number | null; }
 
 export interface ISIAssessment { id: string; patient_id: string; assessed_at: string; q1: number; q2: number; q3: number; q4: number; q5: number; q6: number; q7: number; total_score: number; }
 
