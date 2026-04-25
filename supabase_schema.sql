@@ -156,6 +156,11 @@ begin
 end;
 $$;
 
+drop trigger if exists patients_updated_at       on public.patients;
+drop trigger if exists sleep_disorders_updated_at on public.sleep_disorders;
+drop trigger if exists exam_results_updated_at    on public.exam_results;
+drop trigger if exists settings_updated_at        on public.settings;
+
 create trigger patients_updated_at
   before update on public.patients
   for each row execute function public.set_updated_at();
@@ -191,11 +196,15 @@ alter table public.settings          enable row level security;
 -- ============================================================
 
 -- user_roles
+drop policy if exists "본인 역할 조회" on public.user_roles;
 create policy "본인 역할 조회"
   on public.user_roles for select
   using (auth.uid() = id);
 
 -- patients
+drop policy if exists "환자 본인 조회"       on public.patients;
+drop policy if exists "관리자 환자 전체 조회" on public.patients;
+drop policy if exists "관리자 환자 전체 관리" on public.patients;
 create policy "환자 본인 조회"
   on public.patients for select
   using (id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -209,6 +218,8 @@ create policy "관리자 환자 전체 관리"
   using (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- sleep_disorders
+drop policy if exists "환자 진단정보 조회"       on public.sleep_disorders;
+drop policy if exists "관리자 진단정보 전체 관리" on public.sleep_disorders;
 create policy "환자 진단정보 조회"
   on public.sleep_disorders for select
   using (patient_id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -218,6 +229,10 @@ create policy "관리자 진단정보 전체 관리"
   using (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- sleep_diary
+drop policy if exists "환자 본인 일지 관리" on public.sleep_diary;
+drop policy if exists "관리자 일지 전체 조회" on public.sleep_diary;
+drop policy if exists "관리자 일지 수정"   on public.sleep_diary;
+drop policy if exists "관리자 일지 입력"   on public.sleep_diary;
 create policy "환자 본인 일지 관리"
   on public.sleep_diary for all
   using (patient_id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -235,6 +250,8 @@ create policy "관리자 일지 입력"
   with check (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- treatment_records
+drop policy if exists "환자 처방 조회"       on public.treatment_records;
+drop policy if exists "관리자 처방 전체 관리" on public.treatment_records;
 create policy "환자 처방 조회"
   on public.treatment_records for select
   using (patient_id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -244,6 +261,8 @@ create policy "관리자 처방 전체 관리"
   using (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- exam_results
+drop policy if exists "환자 검사결과 조회"       on public.exam_results;
+drop policy if exists "관리자 검사결과 전체 관리" on public.exam_results;
 create policy "환자 검사결과 조회"
   on public.exam_results for select
   using (patient_id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -253,6 +272,8 @@ create policy "관리자 검사결과 전체 관리"
   using (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- isi_assessments
+drop policy if exists "환자 ISI 관리"     on public.isi_assessments;
+drop policy if exists "관리자 ISI 전체 조회" on public.isi_assessments;
 create policy "환자 ISI 관리"
   on public.isi_assessments for all
   using (patient_id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -262,6 +283,8 @@ create policy "관리자 ISI 전체 조회"
   using (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- qna
+drop policy if exists "환자 본인 문의 관리" on public.qna;
+drop policy if exists "관리자 문의 전체 관리" on public.qna;
 create policy "환자 본인 문의 관리"
   on public.qna for all
   using (patient_id in (select patient_id from public.user_roles where id = auth.uid()));
@@ -271,6 +294,7 @@ create policy "관리자 문의 전체 관리"
   using (exists (select 1 from public.user_roles where id = auth.uid() and role = 'admin'));
 
 -- settings
+drop policy if exists "본인 설정 관리" on public.settings;
 create policy "본인 설정 관리"
   on public.settings for all
   using (auth.uid() = id);
