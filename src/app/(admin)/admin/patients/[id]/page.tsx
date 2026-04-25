@@ -25,7 +25,7 @@ export default async function PatientDetailPage({
       patient={patientRes.data}
       diaries={diariesRes.data ?? []}
       treatments={treatmentsRes.data ?? []}
-      exams={examsRes.data ?? []}
+      exams={examsRes.data?.map(e => ({ ...e, result_data: e.result_data as Record<string, unknown> | null })) ?? []}
       qnaList={qnaRes.data ?? []}
     />
   )

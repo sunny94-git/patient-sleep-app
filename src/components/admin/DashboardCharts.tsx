@@ -15,7 +15,7 @@ export function WeeklyEfficiencyChart({ data }: { data: WeeklyData[] }) {
         <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
         <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
         <Tooltip
-          formatter={(v: number | null) => (v !== null ? `${v}%` : '—')}
+          formatter={(v: unknown) => (v != null ? `${v}%` : '—')}
           contentStyle={{ fontSize: 12, border: '1px solid #E5E7EB', borderRadius: 8 }}
         />
         <Bar dataKey="value" radius={[6, 6, 0, 0]}>

@@ -9,5 +9,5 @@ export default async function PrescriptionPage() {
     supabase.from('exam_results').select('*').eq('patient_id', patientId).order('exam_date', { ascending: false }),
   ])
 
-  return <PrescriptionClient treatments={treatmentsRes.data ?? []} exams={examsRes.data ?? []} />
+  return <PrescriptionClient treatments={treatmentsRes.data ?? []} exams={examsRes.data?.map(e => ({ ...e, result_data: e.result_data as Record<string, unknown> | null })) ?? []} />
 }

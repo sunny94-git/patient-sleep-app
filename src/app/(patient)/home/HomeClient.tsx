@@ -7,7 +7,7 @@ import { getISISeverity } from '@/types'
 interface Props {
   patient: { id: string; name: string; registration_number: string }
   todayDiary: { diary_date: string } | null
-  latestIsi: { total_score: number; assessed_at: string } | null
+  latestIsi: { total_score: number | null; assessed_at: string } | null
   nextVisit: string | null
   settings: { push_enabled: boolean; diary_remind: boolean; med_alarm: boolean; qna_alarm: boolean }
 }
@@ -21,7 +21,7 @@ const MENU = [
 ]
 
 export default function HomeClient({ patient, todayDiary, latestIsi, nextVisit }: Props) {
-  const isiSeverity = latestIsi ? getISISeverity(latestIsi.total_score) : null
+  const isiSeverity = latestIsi?.total_score != null ? getISISeverity(latestIsi.total_score) : null
   const isiColor = isiSeverity === '없음' ? 'text-green-600' : isiSeverity === '경미' ? 'text-yellow-600' : isiSeverity === '중등도' ? 'text-orange-500' : 'text-red-500'
 
   return (

@@ -28,10 +28,11 @@ export async function POST(req: Request) {
     .eq('diary_date', diary_date)
     .maybeSingle()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = existing
     ? await supabase
         .from('sleep_diary')
-        .update({ [column]: checked })
+        .update({ [column]: checked } as any)
         .eq('id', existing.id)
         .select()
         .single()
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
           nap_taken: false,
           alcohol: false,
           [column]: checked,
-        })
+        } as any)
         .select()
         .single()
 

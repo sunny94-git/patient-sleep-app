@@ -5,12 +5,18 @@ import { MessageCircle, CheckCircle, Clock } from 'lucide-react'
 export default async function AdminQnAPage() {
   const { supabase } = await requireAdmin()
 
+  type QnARow = {
+    id: string; question: string; answer: string | null; is_answered: boolean
+    created_at: string; answered_at: string | null; patient_id: string
+    patients: { name: string; registration_number: string } | null
+  }
+
   const { data } = await supabase
     .from('qna')
     .select('*, patients(name, registration_number)')
     .order('created_at', { ascending: false })
 
-  const items = data ?? []
+  const items = (data ?? []) as unknown as QnARow[]
   const unanswered = items.filter((q) => !q.is_answered)
   const answered = items.filter((q) => q.is_answered)
 
@@ -57,7 +63,7 @@ export default async function AdminQnAPage() {
   )
 }
 
-function QnACard({ item }: { item: { id: string; question: string; answer: string | null; is_answered: boolean; created_at: string; answered_at: string | null; patients: { name: string; registration_number: string } | null } }) {
+function QnACard({ item }: { item: { id: string; question: string; answer: string | null; is_answered: boolean; created_at: string; answered_at: string | null; patient_id: string; patients: { name: string; registration_number: string } | null } }) {
   const patient = item.patients
   return (
     <div className="bg-white rounded-xl shadow-card p-4 space-y-2">

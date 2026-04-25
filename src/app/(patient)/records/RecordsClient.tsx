@@ -21,7 +21,7 @@ interface Exam {
 interface IsiHistory {
   id: string
   assessed_at: string
-  total_score: number
+  total_score: number | null
 }
 
 export default function RecordsClient({
@@ -98,7 +98,7 @@ export default function RecordsClient({
             {isiHistory.length === 0
               ? <p className="text-sm text-gray-400 text-center py-10">ISI 기록이 없습니다.</p>
               : isiHistory.map((h) => {
-                const s = getISISeverity(h.total_score)
+                const s = h.total_score != null ? getISISeverity(h.total_score) : '없음'
                 const color = s === '없음' ? 'text-green-600' : s === '경미' ? 'text-yellow-600' : s === '중등도' ? 'text-orange-500' : 'text-red-500'
                 return (
                   <div key={h.id} className="bg-white rounded-2xl shadow-card px-4 py-3 flex items-center justify-between">

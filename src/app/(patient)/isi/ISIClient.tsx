@@ -14,8 +14,8 @@ const QUESTIONS = [
   { q: '현재 수면 문제에 대한 걱정', labels: ['전혀 없음', '조금', '어느 정도', '많이', '매우 많이'] },
 ]
 
-interface HistoryItem { id: string; assessed_at: string; total_score: number }
-interface Assessment { total_score: number; assessed_at: string; q1: number; q2: number; q3: number; q4: number; q5: number; q6: number; q7: number }
+interface HistoryItem { id: string; assessed_at: string; total_score: number | null }
+interface Assessment { total_score: number | null; assessed_at: string; q1: number | null; q2: number | null; q3: number | null; q4: number | null; q5: number | null; q6: number | null; q7: number | null }
 
 export default function ISIClient({
   latestAssessment,
@@ -48,7 +48,7 @@ export default function ISIClient({
     setSubmitting(false)
   }
 
-  const severity = result ? getISISeverity(result.total_score) : latestAssessment ? getISISeverity(latestAssessment.total_score) : null
+  const severity = result ? getISISeverity(result.total_score) : (latestAssessment?.total_score != null ? getISISeverity(latestAssessment.total_score) : null)
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -118,7 +118,7 @@ export default function ISIClient({
               <p className="text-sm text-gray-400 text-center py-10">이전 평가 기록이 없습니다.</p>
             ) : (
               history.map((h) => {
-                const s = getISISeverity(h.total_score)
+                const s = h.total_score != null ? getISISeverity(h.total_score) : '없음'
                 const color = s === '없음' ? 'text-green-600' : s === '경미' ? 'text-yellow-600' : s === '중등도' ? 'text-orange-500' : 'text-red-500'
                 return (
                   <div key={h.id} className="bg-white rounded-xl shadow-card px-4 py-3 flex items-center justify-between">
