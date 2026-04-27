@@ -36,6 +36,14 @@ export async function middleware(request: NextRequest) {
   if (user && pathname === '/login') {
     return NextResponse.redirect(new URL('/home', request.url))
   }
+  if (user && pathname === '/admin/login') {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+  }
+
+  // 비로그인 → /admin/* 접근 시 관리자 로그인으로
+  if (!user && pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+    return NextResponse.redirect(new URL('/admin/login', request.url))
+  }
 
   return supabaseResponse
 }
