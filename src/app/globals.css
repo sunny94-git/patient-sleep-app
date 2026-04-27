@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css');
+
+/* ============================================================
+   디자인 토큰
+   ============================================================ */
+@theme inline {
+  /* 폰트 */
+  --font-sans: 'Pretendard Variable', 'Inter', -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
+
+  /* 브랜드 컬러 */
+  --color-brand-50:  #EFF6FF;
+  --color-brand-100: #DBEAFE;
+  --color-brand-200: #BFDBFE;
+  --color-brand-400: #60A5FA;
+  --color-brand-500: #4A90D9;
+  --color-brand-600: #3B82F6;
+  --color-brand-700: #2563EB;
+
+  /* 배경 */
+  --color-bg-primary:   #FFFFFF;
+  --color-bg-secondary: #F5F7FA;
+  --color-bg-tertiary:  #F1F5F9;
+
+  /* 텍스트 */
+  --color-text-primary:   #1A202C;
+  --color-text-secondary: #4A5568;
+  --color-text-muted:     #718096;
+  --color-text-disabled:  #A0AEC0;
+
+  /* 시맨틱 */
+  --color-success: #22C55E;
+  --color-warning: #EAB308;
+  --color-caution: #F97316;
+  --color-danger:  #EF4444;
+
+  /* 수면 단계 */
+  --color-sleep-deep:  #2563EB;
+  --color-sleep-light: #60A5FA;
+  --color-sleep-rem:   #93C5FD;
+  --color-sleep-awake: #BFDBFE;
+
+  /* 사이드바 */
+  --color-sidebar: #F5F7FA;
+
+  /* 보더 라디우스 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* 그림자 */
+  --shadow-card:       0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ============================================================
+   기본 스타일
+   ============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: #F5F7FA;
+  color: #1A202C;
+  font-family: 'Pretendard Variable', 'Inter', -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Safe area (iOS PWA) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
