@@ -58,6 +58,11 @@ export default function PatientDetailPage() {
   const [prescForm, setPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
   const [prescSubmitting, setPrescSubmitting] = useState(false)
 
+  // 처방 수정·삭제 상태
+  const [editingPresc, setEditingPresc] = useState<TreatmentRecord | null>(null)
+  const [editPrescForm, setEditPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
+  const [prescDeleting, setPrescDeleting] = useState<string | null>(null)
+
   // 진단 상태
   const [showDisorderForm, setShowDisorderForm] = useState(false)
   const [disorderForm, setDisorderForm] = useState(emptyDisorderForm)
@@ -130,6 +135,41 @@ export default function PatientDetailPage() {
     await fetch(`/api/admin/patients/${id}/disorders/${did}`, { method: 'DELETE' })
     setDeletingId(null)
     reloadPatient()
+  }
+
+  const handleEditPresc = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingPresc) return
+    setPrescSubmitting(true)
+    const res = await fetch(`/api/admin/patients/${id}/prescriptions/${editingPresc.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editPrescForm),
+    })
+    setPrescSubmitting(false)
+    if (res.ok) {
+      setEditingPresc(null)
+      reloadPatient()
+    }
+  }
+
+  const handleDeletePresc = async (pid: string) => {
+    if (!confirm('처방을 삭제하시겠습니까?')) return
+    setPrescDeleting(pid)
+    await fetch(`/api/admin/patients/${id}/prescriptions/${pid}`, { method: 'DELETE' })
+    setPrescDeleting(null)
+    reloadPatient()
+  }
+
+  const startEditPresc = (t: TreatmentRecord) => {
+    setEditingPresc(t)
+    setEditPrescForm({
+      visit_date: t.visit_date ?? '',
+      prescription: t.prescription ?? '',
+      treatment_notes: t.treatment_notes ?? '',
+      next_visit_date: t.next_visit_date ?? '',
+    })
+    setShowPrescriptionForm(false)
   }
 
   const startEdit = (d: SleepDisorder) => {
@@ -454,16 +494,93 @@ export default function PatientDetailPage() {
           <div className="space-y-3">
             {patient.treatment_records.map((t, i) => (
               <div key={t.id} className={`${i > 0 ? 'border-t border-bg-tertiary pt-3' : ''}`}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="font-medium text-text-primary text-sm">{formatDate(t.visit_date)}</span>
-                  {i === 0 && <span className="text-xs px-2 py-0.5 bg-brand-50 text-brand-700 rounded-full">최근</span>}
-                  {t.next_visit_date && (
-                    <span className="text-xs text-text-muted ml-auto">다음: {formatDate(t.next_visit_date)}</span>
-                  )}
-                </div>
-                {t.prescription && <p className="text-sm text-text-primary whitespace-pre-wrap">{t.prescription}</p>}
-                {t.treatment_notes && (
-                  <p className="text-xs text-text-muted mt-1 italic">{t.treatment_notes}</p>
+                {editingPresc?.id === t.id ? (
+                  <form onSubmit={handleEditPresc} className="p-4 bg-bg-secondary rounded-[--radius-sm] space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">방문일 *</label>
+                        <input
+                          type="date"
+                          required
+                          value={editPrescForm.visit_date}
+                          onChange={e => setEditPrescForm(f => ({ ...f, visit_date: e.target.value }))}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">다음 방문일</label>
+                        <input
+                          type="date"
+                          value={editPrescForm.next_visit_date}
+                          onChange={e => setEditPrescForm(f => ({ ...f, next_visit_date: e.target.value }))}
+                          className={inputCls}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">처방</label>
+                      <textarea
+                        rows={3}
+                        value={editPrescForm.prescription}
+                        onChange={e => setEditPrescForm(f => ({ ...f, prescription: e.target.value }))}
+                        className={`${inputCls} resize-none`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">원장 코멘트</label>
+                      <textarea
+                        rows={2}
+                        value={editPrescForm.treatment_notes}
+                        onChange={e => setEditPrescForm(f => ({ ...f, treatment_notes: e.target.value }))}
+                        className={`${inputCls} resize-none`}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={prescSubmitting}
+                        className="flex-1 py-2 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+                      >
+                        {prescSubmitting ? '저장 중...' : '수정 저장'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPresc(null)}
+                        className="px-4 py-2 border border-bg-tertiary rounded-[--radius-sm] text-sm text-text-secondary hover:bg-bg-secondary"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="font-medium text-text-primary text-sm">{formatDate(t.visit_date)}</span>
+                      {i === 0 && <span className="text-xs px-2 py-0.5 bg-brand-50 text-brand-700 rounded-full">최근</span>}
+                      {t.next_visit_date && (
+                        <span className="text-xs text-text-muted">다음: {formatDate(t.next_visit_date)}</span>
+                      )}
+                      <div className="flex gap-1 ml-auto">
+                        <button
+                          onClick={() => startEditPresc(t)}
+                          className="text-xs text-brand-600 hover:text-brand-700 px-2 py-1 rounded hover:bg-bg-secondary"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDeletePresc(t.id)}
+                          disabled={prescDeleting === t.id}
+                          className="text-xs text-danger hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                    {t.prescription && <p className="text-sm text-text-primary whitespace-pre-wrap">{t.prescription}</p>}
+                    {t.treatment_notes && (
+                      <p className="text-xs text-text-muted mt-1 italic">{t.treatment_notes}</p>
+                    )}
+                  </>
                 )}
               </div>
             ))}
