@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getIsiLevel } from '@/lib/utils'
 
 interface SleepDisorder {
   id: string
@@ -19,6 +20,14 @@ interface TreatmentRecord {
   treatment_notes: string | null
   next_visit_date: string | null
   created_at: string
+}
+
+interface IsiAssessment {
+  id: string
+  assessed_at: string
+  total_score: number
+  q1: number; q2: number; q3: number; q4: number
+  q5: number; q6: number; q7: number
 }
 
 interface Patient {
@@ -52,6 +61,7 @@ export default function PatientDetailPage() {
   const router = useRouter()
   const [patient, setPatient] = useState<Patient | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isiList, setIsiList] = useState<IsiAssessment[]>([])
 
   // 처방 추가 상태
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false)
@@ -72,10 +82,14 @@ export default function PatientDetailPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`/api/admin/patients/${id}`)
-      .then(r => r.json())
-      .then(d => { setPatient(d); setLoading(false) })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch(`/api/admin/patients/${id}`).then(r => r.json()),
+      fetch(`/api/admin/patients/${id}/isi`).then(r => r.json()),
+    ]).then(([patientData, isiData]) => {
+      setPatient(patientData)
+      setIsiList(Array.isArray(isiData) ? isiData : [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [id])
 
   const reloadPatient = () =>
@@ -421,6 +435,34 @@ export default function PatientDetailPage() {
             <p className="text-xs text-text-muted">HRV / InBody / QEEG</p>
           </div>
         </Link>
+      </div>
+
+      {/* ISI 자가진단 이력 */}
+      <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5">
+        <h2 className="text-base font-semibold text-text-primary mb-4">ISI 자가진단 이력</h2>
+        {isiList.length === 0 ? (
+          <p className="text-text-muted text-sm">자가진단 기록이 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {[...isiList].reverse().map(item => {
+              const level = getIsiLevel(item.total_score)
+              return (
+                <div key={item.id} className="flex items-center gap-3 py-2 border-b border-bg-tertiary last:border-0">
+                  <span className="text-sm text-text-muted w-32 shrink-0">
+                    {item.assessed_at.slice(0, 10).replace(/-/g, '.')}
+                  </span>
+                  <span className="text-sm font-semibold text-text-primary w-12 text-right">{item.total_score}점</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${level.bg} ${level.color}`}>
+                    {level.label}
+                  </span>
+                  <span className="text-xs text-text-muted ml-auto">
+                    Q1~7: {[item.q1, item.q2, item.q3, item.q4, item.q5, item.q6, item.q7].join(' / ')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* 처방 내역 */}
