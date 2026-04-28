@@ -1121,3 +1121,61 @@ Vercel Preview URL(`https://<branch>-patient-sleep-app.vercel.app`)에서 Supaba
 Supabase 대시보드 → Authentication → URL Configuration → Redirect URLs에 `https://*.vercel.app/**`가 등록돼 있어야 한다.  
 현재 프로덕션 URL과 와일드카드 패턴이 등록된 상태다.
 
+---
+
+## 10. GitHub 작업 방식
+
+### 10-1. 브랜치 구조
+
+| 브랜치 | 용도 |
+|--------|------|
+| `main` | 프로덕션 배포 브랜치. Vercel이 이 브랜치를 감시하며 자동 배포한다. |
+| `claude/document-project-status-3Bm9S` | 현재 작업 브랜치. 개발 완료 후 main으로 머지한다. |
+
+**규칙**
+- `main`에 직접 push하지 않는다.
+- 모든 변경은 작업 브랜치에서 개발 → `npm run build` 성공 확인 → commit → push → PR → main 머지 순서로 진행한다.
+- 새 기능 추가 시 `feature/기능명` 브랜치를 생성해 작업한다.
+
+---
+
+### 10-2. 커밋 메시지 규칙
+
+`타입: 내용` 형식을 따른다.
+
+| 타입 | 사용 시점 |
+|------|-----------|
+| `feat` | 새 기능 추가 |
+| `fix` | 버그 수정 |
+| `refactor` | 기능 변경 없는 코드 개선 |
+| `style` | UI·스타일만 변경 |
+| `docs` | 문서(`AGENTS.md`, `CLAUDE.md` 등) 수정 |
+| `chore` | 패키지 설치, 설정 파일 변경 |
+
+예시:
+```
+feat: 환자 비밀번호 변경 페이지 추가
+fix: 수면 효율 계산 취침 시각 오전/오후 처리 오류 수정
+docs: AGENTS.md 섹션 10 작성
+```
+
+---
+
+### 10-3. PR 규칙
+
+- PR 제목은 커밋 메시지와 동일한 형식 (`타입: 내용`)
+- PR 본문에 변경 내용 요약, 테스트 방법, 스크린샷(UI 변경 시) 포함
+- `npm run build` 성공 확인 후 PR 생성
+- main 머지 전 Vercel Preview URL에서 동작 검증 권장
+
+---
+
+### 10-4. 레포지토리 정보
+
+| 항목 | 값 |
+|------|-----|
+| GitHub 레포 | `sunny94-git/patient-sleep-app` |
+| 기본 브랜치 | `main` |
+| 현재 작업 브랜치 | `claude/document-project-status-3Bm9S` |
+| Vercel 연동 | GitHub 레포 → Vercel 자동 배포 연결됨 |
+
