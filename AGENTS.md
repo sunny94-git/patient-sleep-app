@@ -618,3 +618,205 @@ npm run lint     # ESLint 검사
 
 > 코드 수정 후 반드시 `npm run build`로 TypeScript 오류 없음을 확인하고 커밋한다.
 
+---
+
+## 7. 주요 폴더/파일 구조
+
+### 프로젝트 루트
+
+```
+patient-sleep-app/
+├── src/                        # 전체 소스코드
+├── public/                     # 정적 파일 (현재 기본 SVG만 있음, manifest.json 없음)
+├── supabase_schema.sql         # DB 초기화 스크립트 (재실행 가능, idempotent)
+├── vercel.json                 # Vercel 배포 설정 (리전: icn1)
+├── AGENTS.md                   # 이 파일 — Codex 인수인계 문서
+├── CLAUDE.md                   # Claude 세션용 프로젝트 현황 문서
+├── next.config.ts
+├── tsconfig.json
+├── postcss.config.mjs
+└── package.json
+```
+
+### `src/` 전체 구조
+
+```
+src/
+├── middleware.ts               # 인증 라우팅 게이트웨이
+├── types/
+│   └── index.ts                # DB 테이블 대응 TypeScript 인터페이스 9종
+│
+├── lib/
+│   ├── utils.ts                # 공통 유틸 함수
+│   └── supabase/
+│       ├── client.ts           # 브라우저 전용 Supabase 클라이언트
+│       ├── server.ts           # 서버 전용 클라이언트 + Admin 클라이언트
+│       └── admin-guard.ts      # requireAdmin() — 관리자 API 인증 유틸
+│
+├── components/
+│   ├── ui/
+│   │   └── button.tsx          # CVA 기반 공통 버튼 (variant: primary/secondary/ghost/danger)
+│   ├── layout/
+│   │   └── BottomTabBar.tsx    # 환자 하단 탭바 5개 (홈·기록·처방·자가진단·문의)
+│   └── admin/
+│       └── AdminSidebar.tsx    # 관리자 사이드바 (대시보드·환자목록·Q&A·로그아웃)
+│
+└── app/
+    ├── globals.css             # Tailwind v4 @theme inline 디자인 토큰 전체 정의
+    ├── layout.tsx              # 루트 레이아웃 (메타데이터, manifest 링크, 뷰포트)
+    ├── page.tsx                # / → /home 리다이렉트
+    ├── favicon.ico
+    │
+    ├── login/
+    │   └── page.tsx            # 환자 로그인 (등록번호 + 비밀번호)
+    │
+    ├── (patient)/              # 라우트 그룹 — URL에 영향 없음, 인증 보호
+    │   ├── layout.tsx          # BottomTabBar 삽입 + 하단 72px 패딩
+    │   ├── home/
+    │   │   └── page.tsx        # 홈 탭
+    │   ├── diary/
+    │   │   └── page.tsx        # 수면 일지 4-Step 폼
+    │   ├── records/
+    │   │   └── page.tsx        # 기록 탭 (수면·효율·검사·ISI 서브탭 + Recharts)
+    │   ├── prescription/
+    │   │   └── page.tsx        # 처방 탭
+    │   ├── isi/
+    │   │   └── page.tsx        # ISI 자가진단 (폼 + 이력)
+    │   └── qna/
+    │       ├── page.tsx        # 문의 목록·새 문의 작성
+    │       └── [id]/
+    │           └── page.tsx    # 문의 상세·원장 답변 표시
+    │
+    ├── admin/
+    │   ├── page.tsx            # /admin → /admin/dashboard 리다이렉트
+    │   ├── login/
+    │   │   └── page.tsx        # 관리자 로그인 (이메일 + 비밀번호 + role 검증)
+    │   └── (dashboard)/        # 라우트 그룹 — 관리자 레이아웃 적용
+    │       ├── layout.tsx      # AdminSidebar + role=admin 서버사이드 검증
+    │       ├── dashboard/
+    │       │   └── page.tsx    # 통계 대시보드
+    │       ├── patients/
+    │       │   ├── page.tsx    # 환자 목록 + 검색
+    │       │   ├── new/
+    │       │   │   └── page.tsx    # 환자 등록
+    │       │   └── [id]/
+    │       │       ├── page.tsx    # 환자 상세 + 처방 인라인 추가
+    │       │       ├── edit/
+    │       │       │   └── page.tsx    # 환자 정보 수정
+    │       │       ├── sleep/
+    │       │       │   └── page.tsx    # 수면 데이터 입력·조회
+    │       │       └── exam/
+    │       │           └── page.tsx    # 검사 결과 입력·조회
+    │       └── qna/
+    │           └── page.tsx    # Q&A 관리 (필터·인라인 답변)
+    │
+    └── api/                    # Route Handlers — 모두 서버 실행
+        ├── diary/
+        │   ├── route.ts        # POST: 수면 일지 upsert
+        │   └── today/
+        │       └── route.ts    # GET: 오늘 일지 + hasPrescription
+        ├── home/
+        │   └── summary/
+        │       └── route.ts    # GET: 홈 요약 데이터 (이름·처방·수면·설정)
+        ├── medication/
+        │   └── check/
+        │       └── route.ts    # PATCH: 복약 필드 토글
+        ├── settings/
+        │   └── route.ts        # GET/PATCH: 알림 설정
+        ├── prescriptions/
+        │   └── route.ts        # GET: 처방 내역 목록
+        ├── isi/
+        │   └── route.ts        # GET/POST: ISI 이력 조회·제출
+        ├── qna/
+        │   ├── route.ts        # GET/POST: 문의 목록·작성
+        │   └── [id]/
+        │       └── route.ts    # GET: 문의 상세
+        ├── records/
+        │   ├── sleep/
+        │   │   └── route.ts    # GET: 수면 일지 (?range=7d|30d|90d)
+        │   ├── efficiency/
+        │   │   └── route.ts    # GET: 수면 효율 계산 (?range=30d|90d)
+        │   ├── exams/
+        │   │   └── [type]/
+        │   │       └── route.ts    # GET: 검사 결과 (type: hrv·inbody·qeeg)
+        │   └── isi/
+        │       └── route.ts    # GET: ISI 점수 이력
+        └── admin/
+            ├── stats/
+            │   └── route.ts    # GET: 대시보드 통계 4종
+            ├── patients/
+            │   ├── route.ts    # GET/POST: 환자 목록·등록
+            │   └── [id]/
+            │       ├── route.ts    # GET/PATCH: 환자 상세·수정
+            │       ├── sleep/
+            │       │   └── route.ts    # GET/POST: 수면 데이터
+            │       ├── exam/
+            │       │   └── route.ts    # GET/POST: 검사 결과
+            │       └── prescriptions/
+            │           ├── route.ts    # POST: 처방 추가
+            │           └── [pid]/
+            │               └── route.ts    # PATCH/DELETE: 처방 수정·삭제
+            └── qna/
+                ├── route.ts    # GET: Q&A 전체 목록 (환자 정보 join)
+                └── [id]/
+                    └── route.ts    # PATCH: 답변 등록
+```
+
+---
+
+### 핵심 파일 상세
+
+#### `src/middleware.ts`
+
+모든 요청의 진입점. Supabase 세션을 쿠키에서 읽어 인증 상태를 확인한다.
+
+| 조건 | 동작 |
+|------|------|
+| 비로그인 + `/api/*` 외 비공개 경로 | `/login` 리다이렉트 |
+| 비로그인 + `/admin/*` (로그인 제외) | `/admin/login` 리다이렉트 |
+| 로그인 + `/login` 접근 | `/home` 리다이렉트 |
+| 로그인 + `/admin/login` 접근 | `/admin/dashboard` 리다이렉트 |
+| `/api/*` 경로 | 미들웨어 통과, Route Handler에서 직접 인증 |
+
+#### `src/lib/utils.ts`
+
+```ts
+cn(...inputs)                          // clsx + tailwind-merge 조합
+calcSleepEfficiency(bedtime, wakeTime, onsetLatency, awakeningCount) → number
+// → (실제 수면 / 침대 시간) × 100, 잠들기·각성 시간 차감
+// → ≥85% 정상 / 70~84% 주의 / <70% 불량
+
+getIsiLevel(score)       → { label, color, bg }   // 0~7·8~14·15~21·22~28
+getSleepEfficiencyLevel(pct) → { label, color }    // 정상·주의·불량
+```
+
+#### `src/lib/supabase/admin-guard.ts`
+
+```ts
+requireAdmin()
+// → { error: NextResponse | null, supabase, user }
+// 모든 /api/admin/* Route Handler 최상단에서 호출
+// role !== 'admin' 이면 error(403) 반환, 이후 로직 실행 안 됨
+```
+
+#### `src/types/index.ts`
+
+DB 9개 테이블에 대응하는 TypeScript 인터페이스 정의.  
+`Patient`, `UserRole`, `SleepDisorder`, `SleepDiary`, `TreatmentRecord`,  
+`ExamResult`, `IsiAssessment`, `Qna`, `Settings`
+
+#### `src/app/globals.css`
+
+Tailwind v4의 모든 커스텀 토큰을 `@theme inline { }` 블록에 CSS 변수로 정의.  
+새 색상·크기 추가 시 이 파일에만 추가하면 된다.
+
+```css
+/* 주요 토큰 */
+--color-brand-500: #4A90D9     → bg-brand-500, text-brand-500
+--color-text-primary: #1A202C  → text-text-primary
+--color-bg-secondary: #F5F7FA  → bg-bg-secondary
+--color-success / warning / caution / danger
+--radius-sm / md / lg          → rounded-[--radius-sm] 형태로 사용
+--shadow-card / card-hover     → shadow-[--shadow-card] 형태로 사용
+```
+
