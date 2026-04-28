@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, BarChart3, Pill, ClipboardCheck, MessageCircle } from 'lucide-react'
+import { Home, BarChart3, Pill, ClipboardCheck, MessageCircle, Settings } from 'lucide-react'
 
 const tabs = [
   { href: '/home',         icon: Home,            label: '홈' },
@@ -10,6 +10,7 @@ const tabs = [
   { href: '/prescription', icon: Pill,             label: '처방' },
   { href: '/isi',          icon: ClipboardCheck,   label: '자가진단' },
   { href: '/qna',          icon: MessageCircle,    label: '문의' },
+  { href: '/settings',     icon: Settings,         label: '설정' },
 ]
 
 export default function BottomTabBar() {
@@ -23,7 +24,7 @@ export default function BottomTabBar() {
           <Link
             key={href}
             href={href}
-            className={`flex flex-col items-center gap-0.5 min-w-[64px] min-h-[44px] justify-center transition-colors ${
+            className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 min-h-[44px] justify-center transition-colors ${
               active ? 'text-[#4A90D9]' : 'text-[#A0AEC0]'
             }`}
           >
