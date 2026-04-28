@@ -430,3 +430,95 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 - **Vercel 배포**: `https://patient-sleep-app.vercel.app`, 환경 변수 등록 완료
 - **Supabase Auth Redirect URL**: 프로덕션 URL 등록 완료
 
+---
+
+## 5. 아직 미완성인 기능
+
+### 5-1. 운영 준비 (배포 직후 필수)
+
+#### 관리자 계정 생성 ⚠️ 가장 먼저 해야 할 작업
+관리자 UI는 완성됐지만 실제 관리자 계정이 Supabase에 아직 없다.  
+아래 절차를 직접 수행해야 한다:
+
+```
+1. Supabase Dashboard → Authentication → Users → "Add user"
+   Email: 실제 관리자 이메일
+   Password: 강력한 비밀번호
+
+2. SQL Editor에서 실행:
+   insert into public.user_roles (id, role)
+   values ('{생성된 user UUID}', 'admin');
+```
+
+---
+
+### 5-2. 환자 앱 미완성 기능
+
+#### 비밀번호 변경 (환자용)
+- 현재: 환자가 초기 비밀번호를 앱 내에서 변경하는 화면 없음
+- 필요한 것: `/settings` 또는 `/profile` 페이지, Supabase `auth.updateUser({ password })` 호출
+- 관련 API: 없음 (신규 구현 필요)
+
+#### 푸시 알림 실제 동작
+- 현재: 홈 탭에 알림 토글 UI가 있고 `settings` 테이블에 `push_enabled`, `diary_remind`, `med_alarm`, `qna_alarm` 저장은 됨
+- 미구현: 실제 브라우저 푸시 알림 발송 로직이 없음 (FCM 또는 Web Push API 연동 필요)
+- 토글 상태만 DB에 저장될 뿐, 알림이 실제로 발송되지 않음
+
+---
+
+### 5-3. 관리자 대시보드 미완성 기능
+
+#### 수면장애 진단 입력·수정
+- 현재: 환자 상세 페이지에서 `sleep_disorders` 데이터를 **조회만** 가능
+- 미구현: 진단 추가·수정·삭제 UI 없음
+- DB 테이블 및 RLS는 준비돼 있음 (`sleep_disorders` 테이블)
+- 관련 API: 없음 (신규 구현 필요)
+
+#### 처방 수정·삭제 UI
+- 현재: `PATCH /api/admin/patients/[id]/prescriptions/[pid]`, `DELETE` API는 구현됨
+- 미구현: 관리자 화면에서 기존 처방을 수정하거나 삭제하는 버튼·폼 없음
+- API만 있고 프론트엔드 UI가 없는 상태
+
+#### 검사 결과 수정·삭제
+- 현재: 검사 결과 입력(POST)과 조회(GET)만 가능
+- 미구현: 기존 결과 수정·삭제 UI 및 API 없음
+
+#### 관리자에서 환자 ISI 조회
+- 현재: 환자 본인만 자신의 ISI 이력을 볼 수 있음
+- 미구현: 관리자가 특정 환자의 ISI 점수 추이를 보는 화면 없음
+- 관련 API: 없음 (신규 구현 필요, `GET /api/admin/patients/[id]/isi`)
+
+#### 환자 계정 비밀번호 초기화
+- 현재: 환자 등록 시 초기 비밀번호만 설정 가능
+- 미구현: 관리자가 특정 환자의 비밀번호를 재설정하는 기능 없음
+- `createAdminClient().auth.admin.updateUserById()` 로 구현 가능
+
+#### 환자 비활성화·삭제
+- 현재: 환자 목록에서 삭제 기능 없음
+- 미구현: 환자 계정 비활성화 또는 삭제 UI 및 API 없음
+
+---
+
+### 5-4. PWA 지원
+
+- 현재: `src/app/layout.tsx`에 `manifest: '/manifest.json'` 링크가 선언돼 있지만, `public/manifest.json` 파일이 존재하지 않음
+- 브라우저에서 "홈 화면에 추가" 시 아이콘·앱 이름이 표시되지 않음
+- 필요한 작업:
+  ```
+  public/manifest.json 생성
+  public/icons/ 앱 아이콘 이미지 추가 (192x192, 512x512)
+  ```
+- Service Worker는 별도 구현 필요 없음 (Next.js 기본 캐싱으로 충분히 동작)
+
+---
+
+### 5-5. 기타 개선 사항
+
+| 항목 | 현황 | 비고 |
+|------|------|------|
+| 페이지네이션 | 환자 목록·Q&A 목록 전체 로드 | 데이터 증가 시 성능 저하 가능 |
+| 수면 일지 과거 수정 | 오늘 날짜만 upsert 가능 | 과거 날짜 수정 불가 |
+| 관리자 복약 현황 조회 | 별도 화면 없음 | 수면 데이터 입력 화면에서 확인 가능 |
+| 로그아웃 (환자) | 하단 탭바에 로그아웃 없음 | 홈 탭 내 추가 필요 |
+| 에러 페이지 | Next.js 기본 에러 페이지 | 커스텀 `error.tsx`, `not-found.tsx` 미작성 |
+
