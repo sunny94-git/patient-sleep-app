@@ -1179,3 +1179,77 @@ docs: AGENTS.md 섹션 10 작성
 | 현재 작업 브랜치 | `claude/document-project-status-3Bm9S` |
 | Vercel 연동 | GitHub 레포 → Vercel 자동 배포 연결됨 |
 
+---
+
+## 11. 개발 시 주의사항
+
+### 11-1. 개인·의료 데이터 민감성
+
+이 앱은 실제 환자의 수면 상태, 복약 이력, 검사 결과, 진단 정보를 다룬다.
+
+- **테스트 데이터 사용**: 개발·테스트 시 실제 환자 이름·연락처·진단명을 코드, 커밋, 이슈, PR에 절대 포함하지 않는다.
+- **로그 주의**: `console.log`로 환자 데이터를 출력하는 코드를 커밋하지 않는다.
+- **스크린샷**: PR이나 문서에 첨부하는 스크린샷에 실제 환자 정보가 노출되지 않도록 한다.
+- **로컬 DB**: 로컬 개발 시 Supabase 프로덕션 DB에 직접 연결하므로, 실수로 프로덕션 데이터를 변경·삭제하지 않도록 주의한다.
+
+---
+
+### 11-2. `SUPABASE_SERVICE_ROLE_KEY` 사용 제한
+
+service_role 키는 RLS를 완전히 우회하며, 모든 테이블에 무제한 접근이 가능하다.
+
+**허용된 사용처**
+- `src/lib/supabase/server.ts`의 `createAdminClient()` 함수 내부
+- 환자 등록 시 `auth.admin.createUser()` 호출 (서버 Route Handler 안에서만)
+
+**절대 금지**
+- `'use client'` 파일에서 import 또는 사용
+- 환경 변수 값을 코드에 하드코딩
+- 클라이언트 번들에 포함될 수 있는 경로에서 참조
+- `NEXT_PUBLIC_` 접두어를 붙여 노출
+
+> 위반 시 RLS가 무력화되어 모든 환자 데이터가 무방비 상태가 된다.
+
+---
+
+### 11-3. 환경 변수 값 기록 금지
+
+아래 항목은 어떤 파일에도 값을 기록하지 않는다:
+
+| 금지 항목 | 이유 |
+|-----------|------|
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` 실제 값 | Git에 노출되면 공개 접근 가능 |
+| `SUPABASE_SERVICE_ROLE_KEY` 실제 값 | RLS 우회 — 유출 시 전체 DB 노출 |
+| 관리자 이메일·비밀번호 | 계정 탈취 위험 |
+| 실제 환자 등록번호·연락처 | 개인정보 침해 |
+
+환경 변수 **이름**은 문서에 기록해도 무방하다. **값**만 기록 금지다.  
+값이 필요하면 Supabase 대시보드 또는 Vercel 대시보드에서 직접 확인한다.
+
+---
+
+### 11-4. 코드 작성 규칙
+
+#### Tailwind v4
+- `tailwind.config.ts` 파일을 새로 만들지 않는다.
+- 새 색상·간격·반경 등 디자인 토큰은 반드시 `src/app/globals.css`의 `@theme inline { }` 블록에 추가한다.
+- 인라인 임의값 사용 예: `rounded-[--radius-md]`, `shadow-[--shadow-card]`
+
+#### Supabase 클라이언트 구분
+- 서버 컴포넌트 / Route Handler → `import { createClient } from '@/lib/supabase/server'`
+- 클라이언트 컴포넌트 (`'use client'`) → `import { createClient } from '@/lib/supabase/client'`
+- 두 파일은 export 이름이 같지만 내부 구현이 다르다. import 경로를 반드시 확인한다.
+
+#### 관리자 API 인증
+- 모든 `/api/admin/*` Route Handler 최상단에서 `requireAdmin()`을 호출한다.
+- `requireAdmin()`이 반환한 `error`가 null이 아니면 즉시 `return error`로 응답한다.
+
+```ts
+const { error, supabase, user } = await requireAdmin()
+if (error) return error
+```
+
+#### 빌드 검증
+- 코드 수정 후 커밋 전에 반드시 `npm run build`를 실행한다.
+- TypeScript 타입 오류·ESLint 오류가 없어야 한다.
+
