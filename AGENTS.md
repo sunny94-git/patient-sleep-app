@@ -1383,3 +1383,103 @@ DB 테이블 (`sleep_disorders`):
 커밋 메시지 형식: feat: 관리자 수면장애 진단 추가·수정·삭제 기능 구현
 ```
 
+---
+
+## 13. 현재 실제 배포 상태
+
+### 13-1. Vercel 배포 현황
+
+| 항목 | 상태 |
+|------|------|
+| 프로덕션 URL | `https://patient-sleep-app.vercel.app` |
+| 배포 브랜치 | `main` |
+| 최신 main 커밋 | `943ae61` — Merge pull request #1 (코드 전체 구현 포함) |
+| 빌드 결과 | ✅ 성공 (배포 당시 `npm run build` 통과 확인) |
+
+### 13-2. 작업 브랜치 vs main 차이
+
+`claude/document-project-status-3Bm9S` 브랜치는 `main`보다 **AGENTS.md 문서 커밋 10개**만 앞서 있다.  
+소스 코드 변경은 없으며, 이 브랜치를 main에 머지해도 프로덕션 동작에 영향이 없다.
+
+| 브랜치 | 포함 내용 |
+|--------|-----------|
+| `main` | 전체 소스 코드 (환자 앱 + 관리자 대시보드 + Vercel 설정) |
+| `claude/document-project-status-3Bm9S` | main 전체 + AGENTS.md 섹션 1~12 문서 작업 |
+
+### 13-3. 배포 URL 진입 가능 여부
+
+아래 경로는 빌드 기준으로 정상 렌더링된다. 단, Supabase 연결이 필요한 기능은 환경 변수가 올바르게 설정돼야 실제 동작한다.
+
+| 경로 | 예상 동작 |
+|------|-----------|
+| `https://patient-sleep-app.vercel.app/` | `/home` 리다이렉트 → 비로그인 시 `/login` |
+| `/login` | 환자 로그인 화면 렌더링 |
+| `/admin/login` | 관리자 로그인 화면 렌더링 |
+| `/admin` | `/admin/dashboard` 리다이렉트 → 비로그인 시 `/admin/login` |
+
+> **실제 로그인 동작 여부**는 Supabase 환경 변수 설정과 관리자 계정 생성 여부에 달려 있다.  
+> 화면 렌더링과 DB 연동은 별개로 확인해야 한다.
+
+---
+
+## 14. 실제 운영 전 필수 체크리스트
+
+Vercel 배포 후 실제 환자에게 서비스를 제공하기 전 반드시 완료해야 하는 항목이다.
+
+| # | 항목 | 현재 상태 | 조치 방법 |
+|---|------|-----------|-----------|
+| 1 | 관리자 계정 생성 | ❌ 미생성 | Supabase → Authentication → Users → Add user 후 `user_roles` 테이블에 `role='admin'` insert |
+| 2 | Vercel 환경 변수 등록 | ✅ 등록됨 | 배포 시 설정 완료 (Production + Preview 범위) |
+| 3 | Supabase RLS 적용 | ✅ 적용됨 | `supabase_schema.sql` 실행 시 모든 테이블 RLS 활성화 + 정책 생성됨 |
+| 4 | Supabase Auth Redirect URL | ✅ 등록됨 | `https://patient-sleep-app.vercel.app/**` 및 `https://*.vercel.app/**` 등록됨 |
+| 5 | 테스트 환자 계정 | ❌ 미생성 | 관리자 계정 생성 후 `/admin/patients/new`에서 테스트 환자 등록 |
+| 6 | 실제 로그인·일지 작성 E2E 테스트 | ❌ 미진행 | 테스트 계정으로 전체 흐름 직접 검증 필요 |
+| 7 | PWA manifest | ❌ 파일 없음 | `public/manifest.json` 생성 필요 (섹션 12 프롬프트 1 참고) |
+
+### 관리자 계정 생성 절차 (가장 먼저 해야 할 작업)
+
+```sql
+-- 1. Supabase Dashboard → Authentication → Users → "Add user"
+--    Email: 실제 관리자 이메일 (예: admin@clinic.com)
+--    Password: 강력한 비밀번호 설정
+
+-- 2. Supabase SQL Editor에서 실행 (생성된 user UUID로 교체):
+INSERT INTO public.user_roles (id, role)
+VALUES ('{생성된 user UUID}', 'admin');
+```
+
+---
+
+## 15. 알려진 버그 및 주의할 동작
+
+### 15-1. 빌드 성공 / 런타임 미확인 항목
+
+실제 Supabase 연결 없이 빌드만 통과한 상태이므로, 아래 기능은 실제 데이터로 검증이 필요하다.
+
+| 기능 | 미확인 이유 | 확인 방법 |
+|------|-------------|-----------|
+| 환자 로그인 | 실제 Supabase 계정 없음 | 테스트 환자 계정 등록 후 로그인 시도 |
+| 관리자 로그인 | 관리자 계정 미생성 | 섹션 14의 절차로 계정 생성 후 테스트 |
+| 수면 일지 제출 | DB 연결 테스트 안 됨 | 로그인 후 `/diary` 4단계 폼 제출 |
+| 복약 체크 토글 | `sleep_diary` upsert 로직 | 처방 있는 환자로 홈 탭 복약 버튼 클릭 |
+| 관리자 환자 등록 | `createAdminClient` + Auth 생성 흐름 | `/admin/patients/new` 에서 등록 시도 |
+| 검사 결과 JSON 저장 | JSONB 필드 입력 흐름 | 유형 선택 → 템플릿 수정 → 저장 |
+| Recharts 차트 렌더링 | 빈 데이터 상태 미확인 | 데이터 없는 상태 + 데이터 있는 상태 각각 확인 |
+
+### 15-2. 알려진 제한 사항
+
+| 항목 | 내용 |
+|------|------|
+| 수면 일지 날짜 | 오늘 날짜만 upsert 가능. 과거 날짜 수정 불가 |
+| 복약 체크 | 오늘 일지가 없을 때 자동 upsert — 취침·기상 시각 없이 복약 필드만 생성됨 |
+| 알림 토글 | UI와 DB 저장은 동작하지만 실제 푸시 알림은 발송되지 않음 |
+| PWA 아이콘 | `public/manifest.json` 없음 — 홈 화면 추가 시 아이콘 미표시 |
+| 환자 로그아웃 | 하단 탭바에 로그아웃 버튼 없음. 브라우저 세션 만료까지 유지됨 |
+| 페이지네이션 | 환자 목록·Q&A 목록 전체 로드. 데이터 수십 건 이상 시 느려질 수 있음 |
+
+### 15-3. UI 레이아웃 주의 사항
+
+- **모바일 전용 설계**: 환자 앱은 최대 너비 `max-w-md` 기준으로 설계됨. 데스크톱 브라우저에서는 중앙 정렬로 표시되며 비정상적으로 보일 수 있음 (의도된 동작)
+- **관리자 대시보드**: 사이드바 + 컨텐츠 레이아웃. 모바일에서는 사이드바가 화면 폭을 초과할 수 있음 (모바일 반응형 미구현)
+- **Recharts ResponsiveContainer**: 부모 요소에 명시적 높이가 없으면 차트가 0px로 렌더링될 수 있음. 현재 모든 차트 컨테이너에 `h-48` 또는 `h-64` 클래스 적용됨
+
