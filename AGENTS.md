@@ -341,6 +341,7 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 | 6 | ISI 자가진단 | `/isi` | `src/app/(patient)/isi/page.tsx` |
 | 7 | 문의 목록·작성 | `/qna` | `src/app/(patient)/qna/page.tsx` |
 | 8 | 문의 상세 | `/qna/[id]` | `src/app/(patient)/qna/[id]/page.tsx` |
+| 9 | 설정 (비밀번호 변경 + 로그아웃) | `/settings` | `src/app/(patient)/settings/page.tsx` |
 
 **환자 앱 세부 구현 내역**
 
@@ -354,6 +355,7 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 - **처방 탭**: 최근 처방 카드(파란 헤더), 지난 처방 아코디언(+/- 토글)
 - **ISI 자가진단**: 7문항 0~4점 버튼 선택, 실시간 총점 미리보기, 제출 후 이력 탭 자동 전환
 - **문의**: 목록·상세·새 문의 작성, 답변 상태 배지(대기중/답변완료), 1000자 제한
+- **설정**: 비밀번호 변경(현재 비밀번호 확인 후 변경), 로그아웃 버튼, 토스트 메시지
 
 ---
 
@@ -429,35 +431,21 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 - **관리자 가드** (`src/lib/supabase/admin-guard.ts`): `requireAdmin()` — 모든 admin API에 적용
 - **Vercel 배포**: `https://patient-sleep-app.vercel.app`, 환경 변수 등록 완료
 - **Supabase Auth Redirect URL**: 프로덕션 URL 등록 완료
+- **관리자 계정**: `admin@clinic.com` Supabase Auth + `user_roles` 등록 완료
+- **PWA manifest**: `public/manifest.json` + `public/icons/` SVG 아이콘 2종
 
 ---
 
 ## 5. 아직 미완성인 기능
 
-### 5-1. 운영 준비 (배포 직후 필수)
+### 5-1. 운영 준비
 
-#### 관리자 계정 생성 ⚠️ 가장 먼저 해야 할 작업
-관리자 UI는 완성됐지만 실제 관리자 계정이 Supabase에 아직 없다.  
-아래 절차를 직접 수행해야 한다:
-
-```
-1. Supabase Dashboard → Authentication → Users → "Add user"
-   Email: 실제 관리자 이메일
-   Password: 강력한 비밀번호
-
-2. SQL Editor에서 실행:
-   insert into public.user_roles (id, role)
-   values ('{생성된 user UUID}', 'admin');
-```
+#### 관리자 계정 ✅ 완료
+`admin@clinic.com` 계정이 Supabase Auth에 생성됐고 `user_roles`에 `role='admin'`으로 등록됨.
 
 ---
 
 ### 5-2. 환자 앱 미완성 기능
-
-#### 비밀번호 변경 (환자용)
-- 현재: 환자가 초기 비밀번호를 앱 내에서 변경하는 화면 없음
-- 필요한 것: `/settings` 또는 `/profile` 페이지, Supabase `auth.updateUser({ password })` 호출
-- 관련 API: 없음 (신규 구현 필요)
 
 #### 푸시 알림 실제 동작
 - 현재: 홈 탭에 알림 토글 UI가 있고 `settings` 테이블에 `push_enabled`, `diary_remind`, `med_alarm`, `qna_alarm` 저장은 됨
@@ -499,16 +487,11 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 
 ---
 
-### 5-4. PWA 지원
+### 5-4. PWA 지원 ✅ 완료
 
-- 현재: `src/app/layout.tsx`에 `manifest: '/manifest.json'` 링크가 선언돼 있지만, `public/manifest.json` 파일이 존재하지 않음
-- 브라우저에서 "홈 화면에 추가" 시 아이콘·앱 이름이 표시되지 않음
-- 필요한 작업:
-  ```
-  public/manifest.json 생성
-  public/icons/ 앱 아이콘 이미지 추가 (192x192, 512x512)
-  ```
-- Service Worker는 별도 구현 필요 없음 (Next.js 기본 캐싱으로 충분히 동작)
+- `public/manifest.json` 생성 완료 (name: "수면클리닉", start_url: "/home", theme_color: "#4A90D9")
+- `public/icons/icon-192.svg`, `icon-512.svg` 달 모양 SVG 아이콘 생성 완료
+- 모바일 브라우저에서 "홈 화면에 추가" 시 앱 이름·아이콘 표시됨
 
 ---
 
@@ -519,7 +502,7 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 | 페이지네이션 | 환자 목록·Q&A 목록 전체 로드 | 데이터 증가 시 성능 저하 가능 |
 | 수면 일지 과거 수정 | 오늘 날짜만 upsert 가능 | 과거 날짜 수정 불가 |
 | 관리자 복약 현황 조회 | 별도 화면 없음 | 수면 데이터 입력 화면에서 확인 가능 |
-| 로그아웃 (환자) | 하단 탭바에 로그아웃 없음 | 홈 탭 내 추가 필요 |
+| 로그아웃 (환자) | ✅ `/settings` 탭에 로그아웃 버튼 추가됨 | — |
 | 에러 페이지 | Next.js 기본 에러 페이지 | 커스텀 `error.tsx`, `not-found.tsx` 미작성 |
 
 ---
@@ -627,7 +610,7 @@ npm run lint     # ESLint 검사
 ```
 patient-sleep-app/
 ├── src/                        # 전체 소스코드
-├── public/                     # 정적 파일 (현재 기본 SVG만 있음, manifest.json 없음)
+├── public/                     # 정적 파일 (manifest.json + SVG 아이콘 포함)
 ├── supabase_schema.sql         # DB 초기화 스크립트 (재실행 가능, idempotent)
 ├── vercel.json                 # Vercel 배포 설정 (리전: icn1)
 ├── AGENTS.md                   # 이 파일 — Codex 인수인계 문서
@@ -657,14 +640,14 @@ src/
 │   ├── ui/
 │   │   └── button.tsx          # CVA 기반 공통 버튼 (variant: primary/secondary/ghost/danger)
 │   ├── layout/
-│   │   └── BottomTabBar.tsx    # 환자 하단 탭바 5개 (홈·기록·처방·자가진단·문의)
+│   │   └── BottomTabBar.tsx    # 환자 하단 탭바 6개 (홈·기록·처방·자가진단·문의·설정)
 │   └── admin/
 │       └── AdminSidebar.tsx    # 관리자 사이드바 (대시보드·환자목록·Q&A·로그아웃)
 │
 └── app/
     ├── globals.css             # Tailwind v4 @theme inline 디자인 토큰 전체 정의
     ├── layout.tsx              # 루트 레이아웃 (메타데이터, manifest 링크, 뷰포트)
-    ├── page.tsx                # / → /home 리다이렉트
+    ├── page.tsx                # / → 역할 기반 리다이렉트 (admin→/admin/dashboard, 환자→/home)
     ├── favicon.ico
     │
     ├── login/
@@ -682,10 +665,12 @@ src/
     │   │   └── page.tsx        # 처방 탭
     │   ├── isi/
     │   │   └── page.tsx        # ISI 자가진단 (폼 + 이력)
-    │   └── qna/
-    │       ├── page.tsx        # 문의 목록·새 문의 작성
-    │       └── [id]/
-    │           └── page.tsx    # 문의 상세·원장 답변 표시
+    │   ├── qna/
+    │   │   ├── page.tsx        # 문의 목록·새 문의 작성
+    │   │   └── [id]/
+    │   │       └── page.tsx    # 문의 상세·원장 답변 표시
+    │   └── settings/
+    │       └── page.tsx        # 비밀번호 변경 + 로그아웃
     │
     ├── admin/
     │   ├── page.tsx            # /admin → /admin/dashboard 리다이렉트
@@ -1261,14 +1246,14 @@ if (error) return error
 
 | 우선순위 | 작업 | 난이도 | 비고 |
 |----------|------|--------|------|
-| 1 | PWA manifest 추가 | 낮음 | JSON 파일 생성만으로 완성 |
-| 2 | 환자 비밀번호 변경 | 중간 | 새 페이지 + API 1개 |
-| 3 | 수면장애 진단 관리 (관리자) | 중간 | 새 API 3개 + UI 추가 |
-| 4 | 처방 수정·삭제 UI | 중간 | API는 이미 구현됨, 프론트만 추가 |
-| 5 | 관리자 환자 ISI 조회 | 중간 | 새 API 1개 + 환자 상세 페이지에 탭 추가 |
-| 6 | 환자 비활성화·삭제 | 중간 | Admin Client 사용 |
-| 7 | 환자 목록 페이지네이션 | 낮음 | API 쿼리 + UI 수정 |
-| 8 | 커스텀 에러 페이지 | 낮음 | `error.tsx`, `not-found.tsx` 추가 |
+| ~~1~~ | ~~PWA manifest 추가~~ | ~~낮음~~ | ✅ 완료 |
+| ~~2~~ | ~~환자 비밀번호 변경~~ | ~~중간~~ | ✅ 완료 (`/settings` 페이지) |
+| 1 | 수면장애 진단 관리 (관리자) | 중간 | 새 API 3개 + UI 추가 |
+| 2 | 처방 수정·삭제 UI | 중간 | API는 이미 구현됨, 프론트만 추가 |
+| 3 | 관리자 환자 ISI 조회 | 중간 | 새 API 1개 + 환자 상세 페이지에 탭 추가 |
+| 4 | 환자 비활성화·삭제 | 중간 | Admin Client 사용 |
+| 5 | 환자 목록 페이지네이션 | 낮음 | API 쿼리 + UI 수정 |
+| 6 | 커스텀 에러 페이지 | 낮음 | `error.tsx`, `not-found.tsx` 추가 |
 
 ---
 
@@ -1393,93 +1378,108 @@ DB 테이블 (`sleep_disorders`):
 |------|------|
 | 프로덕션 URL | `https://patient-sleep-app.vercel.app` |
 | 배포 브랜치 | `main` |
-| 최신 main 커밋 | `943ae61` — Merge pull request #1 (코드 전체 구현 포함) |
-| 빌드 결과 | ✅ 성공 (배포 당시 `npm run build` 통과 확인) |
+| 최신 main 커밋 | PR #6 머지 — 환자 설정 페이지(비밀번호 변경 + 로그아웃) |
+| 빌드 결과 | ✅ 성공 |
 
-### 13-2. 작업 브랜치 vs main 차이
+### 13-2. 실제 동작 확인 완료 항목
 
-`claude/document-project-status-3Bm9S` 브랜치는 `main`보다 **AGENTS.md 문서 커밋 10개**만 앞서 있다.  
-소스 코드 변경은 없으며, 이 브랜치를 main에 머지해도 프로덕션 동작에 영향이 없다.
-
-| 브랜치 | 포함 내용 |
-|--------|-----------|
-| `main` | 전체 소스 코드 (환자 앱 + 관리자 대시보드 + Vercel 설정) |
-| `claude/document-project-status-3Bm9S` | main 전체 + AGENTS.md 섹션 1~12 문서 작업 |
+| 기능 | 확인 결과 |
+|------|-----------|
+| 관리자 로그인 (`admin@clinic.com`) | ✅ 정상 동작 |
+| 환자 등록 (관리자 대시보드) | ✅ 정상 동작 (user_roles 자동 삽입) |
+| 환자 로그인 | ✅ 정상 동작 |
+| 환자 홈 탭 (`/home`) | ✅ 정상 렌더링 |
+| PWA 홈 화면 추가 | ✅ manifest 적용됨 |
+| 환자 설정 탭 (`/settings`) | ✅ 배포 완료 |
 
 ### 13-3. 배포 URL 진입 가능 여부
 
-아래 경로는 빌드 기준으로 정상 렌더링된다. 단, Supabase 연결이 필요한 기능은 환경 변수가 올바르게 설정돼야 실제 동작한다.
-
-| 경로 | 예상 동작 |
-|------|-----------|
-| `https://patient-sleep-app.vercel.app/` | `/home` 리다이렉트 → 비로그인 시 `/login` |
-| `/login` | 환자 로그인 화면 렌더링 |
-| `/admin/login` | 관리자 로그인 화면 렌더링 |
-| `/admin` | `/admin/dashboard` 리다이렉트 → 비로그인 시 `/admin/login` |
-
-> **실제 로그인 동작 여부**는 Supabase 환경 변수 설정과 관리자 계정 생성 여부에 달려 있다.  
-> 화면 렌더링과 DB 연동은 별개로 확인해야 한다.
+| 경로 | 동작 |
+|------|------|
+| `/` | 역할별 리다이렉트 (비로그인→`/login`, admin→`/admin/dashboard`, 환자→`/home`) |
+| `/login` | 환자 로그인 화면 |
+| `/admin/login` | 관리자 로그인 화면 |
+| `/home` | 환자 홈 탭 (로그인 필요) |
+| `/settings` | 비밀번호 변경 + 로그아웃 (로그인 필요) |
 
 ---
 
 ## 14. 실제 운영 전 필수 체크리스트
 
-Vercel 배포 후 실제 환자에게 서비스를 제공하기 전 반드시 완료해야 하는 항목이다.
+Vercel 배포 후 실제 환자에게 서비스를 제공하기 전 완료해야 하는 항목. 모든 필수 항목이 완료된 상태다.
 
-| # | 항목 | 현재 상태 | 조치 방법 |
-|---|------|-----------|-----------|
-| 1 | 관리자 계정 생성 | ❌ 미생성 | Supabase → Authentication → Users → Add user 후 `user_roles` 테이블에 `role='admin'` insert |
-| 2 | Vercel 환경 변수 등록 | ✅ 등록됨 | 배포 시 설정 완료 (Production + Preview 범위) |
-| 3 | Supabase RLS 적용 | ✅ 적용됨 | `supabase_schema.sql` 실행 시 모든 테이블 RLS 활성화 + 정책 생성됨 |
-| 4 | Supabase Auth Redirect URL | ✅ 등록됨 | `https://patient-sleep-app.vercel.app/**` 및 `https://*.vercel.app/**` 등록됨 |
-| 5 | 테스트 환자 계정 | ❌ 미생성 | 관리자 계정 생성 후 `/admin/patients/new`에서 테스트 환자 등록 |
-| 6 | 실제 로그인·일지 작성 E2E 테스트 | ❌ 미진행 | 테스트 계정으로 전체 흐름 직접 검증 필요 |
-| 7 | PWA manifest | ❌ 파일 없음 | `public/manifest.json` 생성 필요 (섹션 12 프롬프트 1 참고) |
+| # | 항목 | 현재 상태 | 비고 |
+|---|------|-----------|------|
+| 1 | 관리자 계정 생성 | ✅ 완료 | `admin@clinic.com` (UUID: `54fb6cf1-10cc-4710-a4ac-c837f7c8aec6`), `user_roles` 삽입 완료 |
+| 2 | Vercel 환경 변수 등록 | ✅ 완료 | Production + Preview 범위 등록 완료 |
+| 3 | Supabase RLS 적용 | ✅ 완료 | `supabase_schema.sql` 실행, 9개 테이블 RLS 활성화 |
+| 4 | Supabase Auth Redirect URL | ✅ 완료 | `https://patient-sleep-app.vercel.app/**`, `https://*.vercel.app/**` 등록됨 |
+| 5 | 테스트 환자 계정 | ✅ 완료 | 홍길동 / 등록번호 `2024002` / 비밀번호 `123456` — 정상 로그인 확인 |
+| 6 | E2E 로그인 테스트 | ✅ 완료 | 관리자·환자 로그인 / 홈 탭 렌더링 직접 확인 |
+| 7 | PWA manifest | ✅ 완료 | `public/manifest.json` + `public/icons/` 아이콘 2종 생성 |
 
-### 관리자 계정 생성 절차 (가장 먼저 해야 할 작업)
+### 추가 관리자 계정 생성 절차 (신규 원장 추가 시)
 
 ```sql
 -- 1. Supabase Dashboard → Authentication → Users → "Add user"
---    Email: 실제 관리자 이메일 (예: admin@clinic.com)
---    Password: 강력한 비밀번호 설정
+--    Email: 실제 관리자 이메일
+--    Password: 강력한 비밀번호
 
 -- 2. Supabase SQL Editor에서 실행 (생성된 user UUID로 교체):
 INSERT INTO public.user_roles (id, role)
-VALUES ('{생성된 user UUID}', 'admin');
+SELECT id, 'admin'
+FROM auth.users
+WHERE email = '실제관리자이메일@example.com';
 ```
 
 ---
 
 ## 15. 알려진 버그 및 주의할 동작
 
-### 15-1. 빌드 성공 / 런타임 미확인 항목
+### 15-1. 실제 동작 확인 완료 항목
 
-실제 Supabase 연결 없이 빌드만 통과한 상태이므로, 아래 기능은 실제 데이터로 검증이 필요하다.
+| 기능 | 확인 결과 |
+|------|-----------|
+| 관리자 로그인 | ✅ 정상 동작 |
+| 관리자 환자 등록 (`createAdminClient` 흐름) | ✅ 정상 동작 — `user_roles` 자동 삽입 포함 |
+| 환자 로그인 | ✅ 정상 동작 |
+| 환자 홈 탭 렌더링 | ✅ 정상 렌더링 |
+| 환자 설정 탭 (비밀번호 변경 / 로그아웃) | ✅ 배포 완료, UI 확인 |
 
-| 기능 | 미확인 이유 | 확인 방법 |
-|------|-------------|-----------|
-| 환자 로그인 | 실제 Supabase 계정 없음 | 테스트 환자 계정 등록 후 로그인 시도 |
-| 관리자 로그인 | 관리자 계정 미생성 | 섹션 14의 절차로 계정 생성 후 테스트 |
-| 수면 일지 제출 | DB 연결 테스트 안 됨 | 로그인 후 `/diary` 4단계 폼 제출 |
-| 복약 체크 토글 | `sleep_diary` upsert 로직 | 처방 있는 환자로 홈 탭 복약 버튼 클릭 |
-| 관리자 환자 등록 | `createAdminClient` + Auth 생성 흐름 | `/admin/patients/new` 에서 등록 시도 |
-| 검사 결과 JSON 저장 | JSONB 필드 입력 흐름 | 유형 선택 → 템플릿 수정 → 저장 |
-| Recharts 차트 렌더링 | 빈 데이터 상태 미확인 | 데이터 없는 상태 + 데이터 있는 상태 각각 확인 |
+### 15-2. 런타임 미확인 항목 (데이터 필요)
 
-### 15-2. 알려진 제한 사항
+아래 기능은 코드 구현 완료 + 빌드 통과 상태이나, 실제 데이터로 검증이 아직 안 된 기능이다.
+
+| 기능 | 확인 방법 |
+|------|-----------|
+| 수면 일지 제출 (`/diary` 4단계 폼) | 테스트 환자로 로그인 후 폼 작성·제출 |
+| 복약 체크 토글 | 처방이 있는 환자의 홈 탭에서 복약 버튼 클릭 |
+| 검사 결과 JSON 저장 | 관리자 → 환자 상세 → 검사 결과 입력 |
+| Recharts 차트 (데이터 있는 상태) | 수면 일지 입력 후 기록 탭 차트 확인 |
+| 비밀번호 변경 실제 동작 | `/settings`에서 현재 비밀번호 입력 후 변경 시도 |
+
+### 15-3. 과거 발생 후 수정된 버그 (참고용)
+
+| 버그 | 원인 | 수정 방법 |
+|------|------|-----------|
+| `ERR_TOO_MANY_REDIRECTS` | 미들웨어와 admin layout이 서로 리다이렉트 루프 | 미들웨어에서 `/admin/login` 자동 리다이렉트 제거; admin layout에서 비관리자 `signOut()` 후 리다이렉트 |
+| 루트 `/` Next.js 기본 템플릿 표시 | `page.tsx`가 기본 보일러플레이트 그대로 | 역할 기반 서버 컴포넌트로 교체 (`admin→/admin/dashboard`, 환자→`/home`) |
+| 환자 로그인 후 `/home` 크래시 | `user_roles` INSERT RLS 정책 없음 → 일반 클라이언트 삽입 실패 → `patient_id` null → API 500 | 환자 등록 API에서 `adminClient` (service_role)로 `user_roles` 삽입, 실패 시 Auth 계정·patients 행 롤백 |
+
+### 15-4. 알려진 제한 사항
 
 | 항목 | 내용 |
 |------|------|
 | 수면 일지 날짜 | 오늘 날짜만 upsert 가능. 과거 날짜 수정 불가 |
 | 복약 체크 | 오늘 일지가 없을 때 자동 upsert — 취침·기상 시각 없이 복약 필드만 생성됨 |
 | 알림 토글 | UI와 DB 저장은 동작하지만 실제 푸시 알림은 발송되지 않음 |
-| PWA 아이콘 | `public/manifest.json` 없음 — 홈 화면 추가 시 아이콘 미표시 |
-| 환자 로그아웃 | 하단 탭바에 로그아웃 버튼 없음. 브라우저 세션 만료까지 유지됨 |
 | 페이지네이션 | 환자 목록·Q&A 목록 전체 로드. 데이터 수십 건 이상 시 느려질 수 있음 |
+| 관리자 앱 모바일 | 사이드바 + 컨텐츠 레이아웃. 모바일 반응형 미구현 — 데스크톱 전용 |
+| 환자 시크릿 모드 | 관리자 로그인 상태에서 환자 로그인 테스트 시 시크릿 탭 사용 필요 (세션 충돌 방지) |
 
-### 15-3. UI 레이아웃 주의 사항
+### 15-5. UI 레이아웃 주의 사항
 
-- **모바일 전용 설계**: 환자 앱은 최대 너비 `max-w-md` 기준으로 설계됨. 데스크톱 브라우저에서는 중앙 정렬로 표시되며 비정상적으로 보일 수 있음 (의도된 동작)
-- **관리자 대시보드**: 사이드바 + 컨텐츠 레이아웃. 모바일에서는 사이드바가 화면 폭을 초과할 수 있음 (모바일 반응형 미구현)
-- **Recharts ResponsiveContainer**: 부모 요소에 명시적 높이가 없으면 차트가 0px로 렌더링될 수 있음. 현재 모든 차트 컨테이너에 `h-48` 또는 `h-64` 클래스 적용됨
+- **모바일 전용 설계**: 환자 앱은 최대 너비 `max-w-md` 기준. 데스크톱에서는 중앙 정렬로 표시 (의도된 동작)
+- **BottomTabBar 6탭**: `min-w-0 flex-1` 클래스로 균등 분배. 탭 추가 시 아이콘·레이블 크기 확인 필요
+- **Recharts ResponsiveContainer**: 부모 요소에 명시적 높이 없으면 차트 0px 렌더링. 현재 모든 컨테이너에 `h-48` 또는 `h-64` 적용됨
 
