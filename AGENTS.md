@@ -522,3 +522,99 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 | 로그아웃 (환자) | 하단 탭바에 로그아웃 없음 | 홈 탭 내 추가 필요 |
 | 에러 페이지 | Next.js 기본 에러 페이지 | 커스텀 `error.tsx`, `not-found.tsx` 미작성 |
 
+---
+
+## 6. 기술 스택
+
+### 핵심 프레임워크 및 런타임
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| Next.js | 16.2.4 | App Router, TypeScript, Turbopack |
+| React | 19.2.4 | Server Components 기본값 |
+| TypeScript | ^5 | strict 모드 |
+| Node.js | 20+ | Vercel 런타임 |
+
+### 스타일링
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| Tailwind CSS | ^4 | CSS-based config, `tailwind.config.ts` 없음 |
+| @tailwindcss/postcss | ^4 | PostCSS 플러그인 |
+| tailwind-merge | ^3.5.0 | 클래스 충돌 방지 (`cn()` 유틸에서 사용) |
+| clsx | ^2.1.1 | 조건부 클래스 조합 |
+| Pretendard Variable | CDN | 한국어 폰트, `globals.css` 최상단 import |
+
+> **Tailwind v4 핵심 차이**: `tailwind.config.ts` 파일이 없다. 모든 커스텀 토큰은  
+> `src/app/globals.css`의 `@theme inline { ... }` 블록 안에 CSS 변수로 선언한다.  
+> 클래스에서 `bg-brand-500`, `rounded-[--radius-md]`, `shadow-[--shadow-card]` 형태로 참조.
+
+### 데이터베이스 및 인증
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| @supabase/ssr | ^0.10.2 | 서버·클라이언트 분리 클라이언트 |
+| @supabase/supabase-js | ^2.104.1 | Admin Client (service_role) |
+
+> Supabase는 **두 가지 클라이언트**를 구분해서 사용한다:
+> - `src/lib/supabase/server.ts` → 서버 컴포넌트·Route Handler 전용
+> - `src/lib/supabase/client.ts` → `'use client'` 컴포넌트 전용  
+> 혼용 시 빌드 에러 발생. 반드시 import 경로 확인 후 사용할 것.
+
+### UI 컴포넌트
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| lucide-react | ^1.11.0 | 아이콘 (ChevronLeft, Moon, Bell 등) |
+| class-variance-authority | ^0.7.1 | 버튼 variant 관리 (`src/components/ui/button.tsx`) |
+| @radix-ui/react-slot | ^1.2.4 | CVA 버튼 `asChild` prop 지원 |
+| @radix-ui/react-dialog | ^1.1.15 | (설치됨, 현재 미사용) |
+| @radix-ui/react-switch | ^1.2.6 | (설치됨, 현재 미사용) |
+| @radix-ui/react-tabs | ^1.1.13 | (설치됨, 현재 미사용) |
+| @radix-ui/react-toast | ^1.2.15 | (설치됨, 현재 미사용) |
+
+### 차트
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| Recharts | ^3.8.1 | 수면/효율/ISI 차트 |
+
+> Recharts는 반드시 `'use client'` 파일에서만 사용한다.  
+> 사용 컴포넌트: `BarChart`, `LineChart`, `ReferenceLine`, `ResponsiveContainer`, `Tooltip`.  
+> `Tooltip formatter` 타입은 명시적 선언 없이 `(v) => [...]` 형태로 작성한다.
+
+### 상태 관리
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| zustand | ^5.0.12 | 설치됨, 현재 미사용 (향후 전역 상태 필요 시 활용) |
+
+> 현재는 각 페이지 컴포넌트의 `useState` + `fetch`로만 상태를 관리한다.
+
+### 배포 및 인프라
+
+| 항목 | 내용 |
+|------|------|
+| Vercel | 호스팅 플랫폼, 서울 리전 `icn1` |
+| Supabase | PostgreSQL DB + Auth + RLS |
+| GitHub | `sunny94-git/patient-sleep-app` |
+
+### 개발 도구
+
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| ESLint | ^9 | `eslint-config-next` 16.2.4 |
+| @types/react | ^19 | |
+| @types/node | ^20 | |
+
+### 개발 명령어
+
+```bash
+npm run dev      # 개발 서버 시작 (localhost:3000, Turbopack)
+npm run build    # 프로덕션 빌드 + TypeScript 타입 검사
+npm run start    # 프로덕션 빌드 로컬 실행
+npm run lint     # ESLint 검사
+```
+
+> 코드 수정 후 반드시 `npm run build`로 TypeScript 오류 없음을 확인하고 커밋한다.
+
