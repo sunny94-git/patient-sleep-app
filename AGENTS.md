@@ -1253,3 +1253,133 @@ if (error) return error
 - 코드 수정 후 커밋 전에 반드시 `npm run build`를 실행한다.
 - TypeScript 타입 오류·ESLint 오류가 없어야 한다.
 
+---
+
+## 12. Codex 다음 작업 우선순위
+
+아래 순서로 작업을 진행하는 것을 권장한다. 각 항목은 독립적으로 구현 가능하다.
+
+| 우선순위 | 작업 | 난이도 | 비고 |
+|----------|------|--------|------|
+| 1 | PWA manifest 추가 | 낮음 | JSON 파일 생성만으로 완성 |
+| 2 | 환자 비밀번호 변경 | 중간 | 새 페이지 + API 1개 |
+| 3 | 수면장애 진단 관리 (관리자) | 중간 | 새 API 3개 + UI 추가 |
+| 4 | 처방 수정·삭제 UI | 중간 | API는 이미 구현됨, 프론트만 추가 |
+| 5 | 관리자 환자 ISI 조회 | 중간 | 새 API 1개 + 환자 상세 페이지에 탭 추가 |
+| 6 | 환자 비활성화·삭제 | 중간 | Admin Client 사용 |
+| 7 | 환자 목록 페이지네이션 | 낮음 | API 쿼리 + UI 수정 |
+| 8 | 커스텀 에러 페이지 | 낮음 | `error.tsx`, `not-found.tsx` 추가 |
+
+---
+
+### Codex 즉시 요청 프롬프트
+
+아래 프롬프트를 Codex에 그대로 붙여넣어 작업을 시작할 수 있다.
+
+---
+
+#### 프롬프트 1 — PWA manifest 추가
+
+```
+수면장애 클리닉 환자 앱(Next.js 16, App Router)에 PWA manifest를 추가해줘.
+
+현재 상태:
+- `src/app/layout.tsx`에 `manifest: '/manifest.json'` 메타데이터가 이미 선언돼 있음
+- `public/manifest.json` 파일이 존재하지 않아 "홈 화면에 추가" 시 아이콘·앱 이름이 표시되지 않음
+- `public/` 디렉터리에는 기본 SVG 파일들만 있음
+
+해야 할 작업:
+1. `public/manifest.json` 생성
+   - name: "수면클리닉"
+   - short_name: "수면클리닉"
+   - start_url: "/home"
+   - display: "standalone"
+   - background_color: "#F5F7FA"
+   - theme_color: "#4A90D9"
+   - icons: 192x192, 512x512 (PNG, any purpose)
+2. `public/icons/` 디렉터리에 아이콘 placeholder SVG를 PNG로 대체할 수 있도록
+   현재 앱 로고 스타일(파란 배경 + 흰색 "W" 텍스트)의 SVG 아이콘 2종 생성
+   (192x192, 512x512 크기)
+3. `npm run build`로 빌드 오류 없음 확인 후 커밋
+
+브랜치: claude/document-project-status-3Bm9S
+커밋 메시지 형식: feat: PWA manifest 및 앱 아이콘 추가
+```
+
+---
+
+#### 프롬프트 2 — 환자 비밀번호 변경 기능 추가
+
+```
+수면장애 클리닉 환자 앱(Next.js 16, App Router, Supabase)에 환자용 비밀번호 변경 기능을 추가해줘.
+
+현재 상태:
+- 환자가 초기 비밀번호를 앱 내에서 변경하는 화면이 없음
+- 환자 앱 하단 탭바(`src/components/layout/BottomTabBar.tsx`)에 로그아웃 버튼도 없음
+- 인증: Supabase Auth, 클라이언트에서 `createClient()` (`src/lib/supabase/client.ts`) 사용
+
+해야 할 작업:
+1. `src/app/(patient)/settings/page.tsx` 생성
+   - '현재 비밀번호', '새 비밀번호', '새 비밀번호 확인' 입력 필드
+   - 제출 시 `supabase.auth.updateUser({ password: newPassword })` 호출
+   - 성공/실패 토스트 메시지 표시
+   - 로그아웃 버튼 포함 (클릭 시 `supabase.auth.signOut()` → `/login` 리다이렉트)
+   - 디자인: 기존 환자 앱 스타일 유지 (`bg-bg-secondary`, `text-text-primary` 등 globals.css 토큰 사용)
+
+2. `src/components/layout/BottomTabBar.tsx` 수정
+   - 기존 5개 탭에 '설정' 탭 추가 (경로: `/settings`, 아이콘: ⚙️ 또는 lucide-react의 Settings 아이콘)
+   - 탭이 6개가 되면 레이아웃이 깨질 수 있으므로, 탭 수를 유지하고 싶다면
+     문의(qna) 탭에 설정을 통합하거나 홈 탭 내 링크로 처리해도 됨 — 판단해서 결정
+
+3. `src/middleware.ts` 확인
+   - `/settings` 경로가 인증 보호 대상에 포함되는지 확인, 누락 시 추가
+
+4. `npm run build` 성공 확인 후 커밋
+
+브랜치: claude/document-project-status-3Bm9S
+커밋 메시지 형식: feat: 환자 비밀번호 변경 및 설정 페이지 추가
+```
+
+---
+
+#### 프롬프트 3 — 관리자 수면장애 진단 관리 추가
+
+```
+수면장애 클리닉 관리자 대시보드(Next.js 16, App Router, Supabase)에 수면장애 진단 관리 기능을 추가해줘.
+
+현재 상태:
+- 환자 상세 페이지(`src/app/admin/(dashboard)/patients/[id]/page.tsx`)에서 `sleep_disorders` 데이터를 조회만 가능
+- 진단 추가·수정·삭제 UI와 API가 없음
+- `sleep_disorders` 테이블과 RLS 정책은 이미 구현돼 있음
+- 모든 관리자 API는 `requireAdmin()`(`src/lib/supabase/admin-guard.ts`)으로 인증 처리
+
+DB 테이블 (`sleep_disorders`):
+- patient_id (uuid, FK → patients)
+- diagnosis (text, NOT NULL)
+- severity (text: '경미' | '중등도' | '심각')
+- onset_date (date, nullable)
+- notes (text, nullable)
+
+해야 할 작업:
+1. API 라우트 3개 생성
+   - `src/app/api/admin/patients/[id]/disorders/route.ts`
+     GET: 해당 환자의 진단 목록 조회
+     POST: 새 진단 추가 (diagnosis 필수, severity/onset_date/notes 선택)
+   - `src/app/api/admin/patients/[id]/disorders/[did]/route.ts`
+     PATCH: 진단 수정 (diagnosis, severity, onset_date, notes)
+     DELETE: 진단 삭제
+
+2. 환자 상세 페이지 수정 (`src/app/admin/(dashboard)/patients/[id]/page.tsx`)
+   - 기존 진단 목록 표시 아래에 "진단 추가" 인라인 폼 추가
+     입력: 진단명(필수), 중증도 선택(경미/중등도/심각), 발병일(선택), 메모(선택)
+   - 각 진단 항목에 수정·삭제 버튼 추가
+     수정: 인라인 편집 또는 별도 폼 토글
+     삭제: 확인 후 삭제
+
+3. 모든 API에 `requireAdmin()` 적용
+4. `npm run build` 성공 확인 후 커밋
+
+브랜치: claude/document-project-status-3Bm9S
+커밋 메시지 형식: feat: 관리자 수면장애 진단 추가·수정·삭제 기능 구현
+```
+
