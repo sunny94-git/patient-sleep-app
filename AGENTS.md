@@ -820,3 +820,225 @@ Tailwind v4의 모든 커스텀 토큰을 `@theme inline { }` 블록에 CSS 변�
 --shadow-card / card-hover     → shadow-[--shadow-card] 형태로 사용
 ```
 
+---
+
+## 8. Supabase 구조
+
+### 8-1. 프로젝트 정보
+
+| 항목 | 값 |
+|------|-----|
+| 프로젝트 ID | `aalzgqtydeilklzufxcn` |
+| DB 초기화 스크립트 | `supabase_schema.sql` (프로젝트 루트) |
+| 재실행 가능 여부 | ✅ idempotent — `CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`, `DROP TRIGGER IF EXISTS` 사용 |
+
+---
+
+### 8-2. 테이블 구조
+
+#### `patients` — 환자 기본 정보
+
+| 컬럼 | 타입 | 제약 |
+|------|------|------|
+| `id` | uuid PK | `uuid_generate_v4()` |
+| `registration_number` | text | NOT NULL, UNIQUE |
+| `name` | text | NOT NULL |
+| `birth_date` | date | nullable |
+| `phone` | text | nullable |
+| `created_at` / `updated_at` | timestamptz | auto |
+
+---
+
+#### `user_roles` — Auth ↔ 환자 연결 + 권한
+
+| 컬럼 | 타입 | 제약 |
+|------|------|------|
+| `id` | uuid PK | `auth.users(id)` 참조, cascade delete |
+| `role` | text | `'patient'` 또는 `'admin'` |
+| `patient_id` | uuid | `patients(id)` 참조, nullable (관리자는 null) |
+| `created_at` | timestamptz | auto |
+
+> **핵심**: 이 테이블이 인증의 중심이다.  
+> 모든 API에서 `auth.uid()` → `user_roles` 조회 → `patient_id` 또는 `role` 확인 순으로 권한을 판별한다.
+
+---
+
+#### `sleep_disorders` — 수면장애 진단
+
+| 컬럼 | 타입 | 제약 |
+|------|------|------|
+| `patient_id` | uuid | NOT NULL, cascade delete |
+| `diagnosis` | text | NOT NULL |
+| `severity` | text | `'경미'` / `'중등도'` / `'심각'` |
+| `onset_date` | date | nullable |
+| `notes` | text | nullable |
+
+---
+
+#### `sleep_diary` — 수면 일지 ⭐ 가장 핵심 테이블
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `patient_id` + `diary_date` | — | **복합 UNIQUE** — upsert 기준 |
+| `bedtime` / `wake_time` | text | `"HH:MM"` 형식 |
+| `sleep_onset_latency` | text | `"0~10분"` / `"10~30분"` / `"30~60분"` / `"60분 이상"` |
+| `night_awakening_count` | text | `"없음"` / `"1회"` / `"2회"` / `"3회 이상"` |
+| `sleep_quality` / `morning_fatigue` / `condition` | int | 1~5 |
+| `daytime_sleepiness` | text | `"없음"` / `"약간"` / `"심함"` |
+| `nap_taken` | boolean | default false |
+| `dream` | text | `"없음"` / `"기억 안남"` / `"꿈꿈"` |
+| `caffeine` | text | `"없음"` / `"1잔"` / `"2잔"` / `"3잔 이상"` |
+| `alcohol` | boolean | default false |
+| `herbal_morning/lunch/evening/bedtime` | boolean | 한약 복약 |
+| `western_morning/lunch/evening/bedtime` | boolean | 양약 복약 |
+| `total_sleep_min` / `deep_sleep_min` / `light_sleep_min` / `rem_sleep_min` | int | 관리자 입력 (분) |
+| `admin_note` | text | 관리자 내부 메모, 환자 미표시 |
+| `updated_by` | uuid | 마지막 수정자 (auth.users 참조) |
+
+---
+
+#### `treatment_records` — 처방 내역
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `patient_id` | uuid | NOT NULL, cascade delete |
+| `visit_date` | date | 방문일 |
+| `prescription` | text | 처방 내용 |
+| `treatment_notes` | text | 원장 코멘트 (환자에게 표시) |
+| `next_visit_date` | date | 다음 방문 예정일 |
+| `created_by` | uuid | 작성 관리자 (auth.users 참조) |
+
+---
+
+#### `exam_results` — 검사 결과
+
+| 컬럼 | 타입 | 제약 |
+|------|------|------|
+| `exam_type` | text | `'HRV'` / `'InBody'` / `'QEEG'` |
+| `result_data` | jsonb | 검사 항목 key-value (자유 형식) |
+| `summary` | text | 원장 코멘트 (환자에게 표시) |
+| `created_by` | uuid | 작성 관리자 |
+
+---
+
+#### `isi_assessments` — ISI 자가진단
+
+| 컬럼 | 타입 | 제약 |
+|------|------|------|
+| `q1` ~ `q7` | int | 0~4 범위 check |
+| `total_score` | int | 앱에서 계산 후 저장 (0~28) |
+| `assessed_at` | timestamptz | 제출 시각 |
+
+---
+
+#### `qna` — 환자 문의
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `question` | text | NOT NULL |
+| `answer` | text | nullable (답변 전 null) |
+| `is_answered` | boolean | default false |
+| `answered_by` | uuid | 답변 관리자 |
+| `answered_at` | timestamptz | 답변 시각 |
+
+---
+
+#### `settings` — 알림 설정
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | uuid PK | `auth.users(id)` 직접 참조 (patient_id 아님) |
+| `push_enabled` | boolean | 전체 알림 |
+| `diary_remind` | boolean | 수면 일지 작성 알림 |
+| `med_alarm` | boolean | 복약 알림 |
+| `qna_alarm` | boolean | Q&A 답변 알림 |
+
+> 현재 토글 UI만 구현됨. 실제 푸시 발송 로직은 미구현.
+
+---
+
+### 8-3. 인증 구조
+
+Supabase Auth의 `auth.users` 테이블을 직접 쓰지 않고, `user_roles` 테이블을 통해 역할을 분리한다.
+
+```
+auth.users (Supabase 관리)
+    │  id (UUID)
+    │
+    └── user_roles
+            ├── role = 'patient'  →  patient_id → patients
+            └── role = 'admin'    →  patient_id = NULL
+```
+
+**환자 로그인 흐름**
+```
+1. 환자가 등록번호 입력 (예: "20240001")
+2. 프론트에서 이메일로 변환: "20240001@patient.local"
+3. supabase.auth.signInWithPassword({ email, password })
+4. 세션 쿠키 저장 (@supabase/ssr)
+5. API 호출 시: auth.uid() → user_roles.patient_id → 데이터 접근
+```
+
+**관리자 로그인 흐름**
+```
+1. 관리자가 실제 이메일 입력 (예: "admin@clinic.com")
+2. supabase.auth.signInWithPassword({ email, password })
+3. user_roles.role === 'admin' 검증
+4. 실패 시 즉시 signOut() 처리
+```
+
+**세션 관리**
+- `@supabase/ssr` 패키지가 쿠키 기반으로 세션을 자동 관리
+- 서버 컴포넌트·Route Handler에서 `createClient()` (server.ts) 호출로 세션 읽음
+- 클라이언트 컴포넌트에서 `createClient()` (client.ts) 호출
+- 미들웨어에서 매 요청마다 세션 갱신 처리
+
+---
+
+### 8-4. RLS 정책 요약
+
+모든 테이블에 RLS가 활성화되어 있다. 정책을 통과하지 못하면 빈 결과(`[]`) 또는 에러를 반환한다.
+
+| 테이블 | 환자 권한 | 관리자 권한 |
+|--------|-----------|-------------|
+| `patients` | 본인 레코드만 SELECT | 전체 SELECT + INSERT + UPDATE + DELETE |
+| `user_roles` | 본인 레코드만 SELECT | (별도 정책 없음 — service_role로 관리) |
+| `sleep_disorders` | 본인 patient_id만 SELECT | 전체 ALL |
+| `sleep_diary` | 본인 patient_id ALL | SELECT + INSERT + UPDATE |
+| `treatment_records` | 본인 patient_id SELECT | 전체 ALL |
+| `exam_results` | 본인 patient_id SELECT | 전체 ALL |
+| `isi_assessments` | 본인 patient_id ALL | SELECT |
+| `qna` | 본인 patient_id ALL | 전체 ALL |
+| `settings` | `auth.uid() = id` ALL | (별도 정책 없음) |
+
+---
+
+### 8-5. 환자/관리자 권한 분리 방식
+
+#### DB 레벨 (RLS)
+RLS 정책의 `using` 절에서 `auth.uid()`로 현재 로그인 사용자를 식별하고, `user_roles` 테이블에서 역할을 확인한다.
+
+```sql
+-- 환자: 본인 데이터만
+using (patient_id in (
+  select patient_id from public.user_roles where id = auth.uid()
+))
+
+-- 관리자: 전체 접근
+using (exists (
+  select 1 from public.user_roles where id = auth.uid() and role = 'admin'
+))
+```
+
+#### API 레벨 (Route Handler)
+- **환자 API**: `auth.getUser()` → `user_roles`에서 `patient_id` 조회 → 해당 patient_id로만 쿼리
+- **관리자 API**: `requireAdmin()` → `role !== 'admin'` 이면 403 반환
+
+#### 클라이언트 레벨 (Admin Client)
+환자 등록 시에만 `createAdminClient()` (service_role 키)를 사용해 `auth.admin.createUser()`를 호출한다.  
+그 외 모든 쿼리는 일반 `createClient()`로 처리하며 RLS가 적용된다.
+
+> ⚠️ `SUPABASE_SERVICE_ROLE_KEY`는 RLS를 우회한다.  
+> 반드시 서버 전용 (`src/lib/supabase/server.ts`)에서만 사용하고,  
+> 클라이언트 번들(`'use client'` 파일)에 절대 import 하지 말 것.
+
