@@ -1042,3 +1042,82 @@ using (exists (
 > 반드시 서버 전용 (`src/lib/supabase/server.ts`)에서만 사용하고,  
 > 클라이언트 번들(`'use client'` 파일)에 절대 import 하지 말 것.
 
+---
+
+## 9. Vercel 배포 구조
+
+### 9-1. 연결된 프로젝트
+
+| 항목 | 값 |
+|------|-----|
+| Vercel 프로젝트 이름 | `patient-sleep-app` |
+| 프로덕션 URL | `https://patient-sleep-app.vercel.app` |
+| 배포 리전 | `icn1` (서울) |
+| GitHub 레포 | `sunny94-git/patient-sleep-app` |
+| 배포 브랜치 | `main` (main에 push 또는 PR 머지 시 자동 배포) |
+| 프레임워크 | Next.js (자동 감지) |
+
+Vercel은 GitHub `main` 브랜치에 변경이 생기면 자동으로 프로덕션 배포를 트리거한다.  
+`main` 외 브랜치에 push하면 Preview URL이 생성된다.
+
+---
+
+### 9-2. 필요한 환경 변수
+
+Vercel 대시보드 → 프로젝트 → Settings → Environment Variables에 아래 3개가 등록돼 있어야 한다.  
+**값은 이 문서에 기록하지 않는다. Supabase 대시보드에서 직접 확인할 것.**
+
+| 변수 이름 | 범위 | 설명 |
+|-----------|------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Production + Preview + Development | Supabase 프로젝트 API URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production + Preview + Development | Supabase anon(public) 키 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | Supabase service_role 키 (서버 전용) |
+
+> `NEXT_PUBLIC_` 접두어가 붙은 변수는 클라이언트 번들에 포함된다.  
+> `SUPABASE_SERVICE_ROLE_KEY`는 `NEXT_PUBLIC_` 접두어가 없으므로 서버에서만 접근 가능하다.
+
+**로컬 개발 시** `.env.local` 파일에 동일한 변수를 설정한다.  
+`.env.local`은 `.gitignore`에 포함돼 있어 커밋되지 않는다.
+
+---
+
+### 9-3. `vercel.json` 설정
+
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "regions": ["icn1"]
+}
+```
+
+특별한 리다이렉트·헤더 규칙은 없다. Next.js의 `middleware.ts`에서 모든 라우팅을 처리한다.
+
+---
+
+### 9-4. 빌드·배포 시 주의사항
+
+#### TypeScript 오류는 빌드 실패로 이어진다
+Vercel은 `npm run build` (`next build`)를 실행하며, 타입 오류가 있으면 배포가 중단된다.  
+코드 수정 후 반드시 로컬에서 `npm run build`로 사전 검증한다.
+
+```bash
+npm run build    # 반드시 성공 확인 후 push
+```
+
+#### `'use client'` 경계 주의
+- **Recharts 컴포넌트**: 반드시 `'use client'` 파일에서만 import
+- **Supabase client.ts**: 브라우저 전용 — Server Component에서 import 금지
+- **Supabase server.ts**: 서버 전용 — `'use client'` 파일에서 import 금지
+- 혼용 시 빌드 오류 또는 런타임 에러 발생
+
+#### 환경 변수 누락 시 빌드 성공 → 런타임 에러
+환경 변수가 없어도 빌드는 통과하지만, 실제 요청 시 Supabase 연결 실패로 500 에러가 발생한다.  
+Vercel에 환경 변수가 올바르게 등록됐는지 배포 전 반드시 확인한다.
+
+#### Preview 배포와 Supabase Redirect URL
+Vercel Preview URL(`https://<branch>-patient-sleep-app.vercel.app`)에서 Supabase Auth가 동작하려면  
+Supabase 대시보드 → Authentication → URL Configuration → Redirect URLs에 `https://*.vercel.app/**`가 등록돼 있어야 한다.  
+현재 프로덕션 URL과 와일드카드 패턴이 등록된 상태다.
+
