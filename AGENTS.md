@@ -325,3 +325,108 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
   - `answer`, `is_answered = true`, `answered_by`, `answered_at` 일괄 저장
 - 이미 답변된 문의는 기존 답변 내용을 읽기 전용으로 표시 (재답변 불가)
 
+---
+
+## 4. 현재 구현 완료된 기능
+
+### 환자 앱
+
+| # | 기능 | 경로 | 주요 파일 |
+|---|------|------|-----------|
+| 1 | 환자 로그인 | `/login` | `src/app/login/page.tsx` |
+| 2 | 홈 탭 | `/home` | `src/app/(patient)/home/page.tsx` |
+| 3 | 수면 일지 4-Step 폼 | `/diary` | `src/app/(patient)/diary/page.tsx` |
+| 4 | 기록 탭 (수면/효율/검사/ISI) | `/records` | `src/app/(patient)/records/page.tsx` |
+| 5 | 처방 탭 | `/prescription` | `src/app/(patient)/prescription/page.tsx` |
+| 6 | ISI 자가진단 | `/isi` | `src/app/(patient)/isi/page.tsx` |
+| 7 | 문의 목록·작성 | `/qna` | `src/app/(patient)/qna/page.tsx` |
+| 8 | 문의 상세 | `/qna/[id]` | `src/app/(patient)/qna/[id]/page.tsx` |
+
+**환자 앱 세부 구현 내역**
+
+- **로그인**: 등록번호 + 비밀번호 입력, `{등록번호}@patient.local`로 Supabase Auth 인증
+- **홈 탭**: 환자 이름 인사말, 오늘 일지 작성 버튼(작성 완료 시 체크 표시), 복약 체크 버튼(처방 환자만), 어제 수면 요약(취침·기상·수면효율), 다음 방문일, 알림 설정 토글
+- **수면 일지**: 4단계 스텝 폼, 진행 표시 바, 처방 환자에게만 Step 4 노출, 제출 후 성공 애니메이션
+- **기록 탭 — 수면**: 수면 시간 바 차트, 수면 단계(깊은·얕은·REM) 누적 바 차트, 만족도·컨디션 선 차트 (Recharts)
+- **기록 탭 — 효율**: 수면 효율 선 차트, 85%·70% 기준선, 30d/90d 범위 전환, 평균 효율 배지
+- **기록 탭 — 검사**: HRV·InBody·QEEG 서브탭, result_data JSONB 항목 그리드 표시, 원장 코멘트
+- **기록 탭 — ISI**: 점수 추이 선 차트(7·14·21 기준선), 최신 점수 배지, 이력 목록
+- **처방 탭**: 최근 처방 카드(파란 헤더), 지난 처방 아코디언(+/- 토글)
+- **ISI 자가진단**: 7문항 0~4점 버튼 선택, 실시간 총점 미리보기, 제출 후 이력 탭 자동 전환
+- **문의**: 목록·상세·새 문의 작성, 답변 상태 배지(대기중/답변완료), 1000자 제한
+
+---
+
+### 관리자 대시보드
+
+| # | 기능 | 경로 | 주요 파일 |
+|---|------|------|-----------|
+| 1 | 관리자 로그인 | `/admin/login` | `src/app/admin/login/page.tsx` |
+| 2 | 대시보드 | `/admin/dashboard` | `src/app/admin/(dashboard)/dashboard/page.tsx` |
+| 3 | 환자 목록 | `/admin/patients` | `src/app/admin/(dashboard)/patients/page.tsx` |
+| 4 | 환자 등록 | `/admin/patients/new` | `src/app/admin/(dashboard)/patients/new/page.tsx` |
+| 5 | 환자 상세 + 처방 추가 | `/admin/patients/[id]` | `src/app/admin/(dashboard)/patients/[id]/page.tsx` |
+| 6 | 환자 정보 수정 | `/admin/patients/[id]/edit` | `src/app/admin/(dashboard)/patients/[id]/edit/page.tsx` |
+| 7 | 수면 데이터 입력 | `/admin/patients/[id]/sleep` | `src/app/admin/(dashboard)/patients/[id]/sleep/page.tsx` |
+| 8 | 검사 결과 입력 | `/admin/patients/[id]/exam` | `src/app/admin/(dashboard)/patients/[id]/exam/page.tsx` |
+| 9 | Q&A 관리 | `/admin/qna` | `src/app/admin/(dashboard)/qna/page.tsx` |
+
+**관리자 세부 구현 내역**
+
+- **로그인**: 이메일 + 비밀번호, `user_roles.role = 'admin'` 검증, 환자 계정으로 접근 시 거부
+- **대시보드**: 4개 통계 카드(클릭 시 해당 메뉴 이동), 빠른 메뉴 3개
+- **환자 목록**: 이름/등록번호 실시간 검색, 등록일 역순 정렬, 총 인원 표시
+- **환자 등록**: Supabase Auth 계정 자동 생성, 실패 시 Auth 계정 롤백
+- **환자 상세**: 기본정보·진단 목록·처방 이력 한 페이지, 처방 인라인 추가 폼
+- **수면 데이터**: 날짜 기준 upsert, 최근 90일 테이블 조회
+- **검사 결과**: 유형별 JSON 템플릿 자동 입력, 유형별 서브탭 조회
+- **Q&A 관리**: 전체/미답변/답변완료 필터, 인라인 textarea 답변 작성
+
+---
+
+### API Route Handler
+
+**환자용 (`/api/...`)**
+
+| 엔드포인트 | 메서드 | 기능 |
+|------------|--------|------|
+| `/api/diary` | POST | 수면 일지 upsert |
+| `/api/diary/today` | GET | 오늘 일지 + hasPrescription |
+| `/api/home/summary` | GET | 홈 요약 (이름·처방·수면 요약·설정) |
+| `/api/medication/check` | PATCH | 복약 체크 토글 |
+| `/api/settings` | GET / PATCH | 알림 설정 조회·수정 |
+| `/api/prescriptions` | GET | 처방 내역 목록 |
+| `/api/isi` | GET / POST | ISI 이력 조회 / 새 검사 제출 |
+| `/api/qna` | GET / POST | 문의 목록 조회 / 새 문의 작성 |
+| `/api/qna/[id]` | GET | 문의 상세 |
+| `/api/records/sleep` | GET | 수면 일지 (`?range=7d\|30d\|90d`) |
+| `/api/records/efficiency` | GET | 수면 효율 계산 (`?range=30d\|90d`) |
+| `/api/records/exams/[type]` | GET | 검사 결과 (`type`: hrv·inbody·qeeg) |
+| `/api/records/isi` | GET | ISI 점수 이력 |
+
+**관리자용 (`/api/admin/...`)**
+
+| 엔드포인트 | 메서드 | 기능 |
+|------------|--------|------|
+| `/api/admin/stats` | GET | 대시보드 통계 4종 |
+| `/api/admin/patients` | GET / POST | 환자 목록 / 환자 등록 |
+| `/api/admin/patients/[id]` | GET / PATCH | 환자 상세 / 정보 수정 |
+| `/api/admin/patients/[id]/sleep` | GET / POST | 수면 데이터 조회 / 입력 |
+| `/api/admin/patients/[id]/exam` | GET / POST | 검사 결과 조회 / 입력 |
+| `/api/admin/patients/[id]/prescriptions` | POST | 처방 추가 |
+| `/api/admin/patients/[id]/prescriptions/[pid]` | PATCH / DELETE | 처방 수정 / 삭제 |
+| `/api/admin/qna` | GET | Q&A 전체 목록 (환자 정보 join) |
+| `/api/admin/qna/[id]` | PATCH | 답변 등록 |
+
+---
+
+### 공통 인프라
+
+- **Supabase 스키마** (`supabase_schema.sql`): 9개 테이블, RLS 정책, updated_at 트리거 완비
+- **미들웨어** (`src/middleware.ts`): 비로그인 접근 차단, 환자·관리자 경로 분리
+- **디자인 시스템** (`src/app/globals.css`): Tailwind v4 `@theme inline` 토큰 정의
+- **공통 유틸** (`src/lib/utils.ts`): `cn()`, `calcSleepEfficiency()`, `getIsiLevel()`, `getSleepEfficiencyLevel()`
+- **관리자 가드** (`src/lib/supabase/admin-guard.ts`): `requireAdmin()` — 모든 admin API에 적용
+- **Vercel 배포**: `https://patient-sleep-app.vercel.app`, 환경 변수 등록 완료
+- **Supabase Auth Redirect URL**: 프로덕션 URL 등록 완료
+
