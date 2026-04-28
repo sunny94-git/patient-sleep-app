@@ -9,7 +9,10 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   if (!user) redirect('/admin/login')
 
   const { data: role } = await supabase.from('user_roles').select('role').eq('id', user.id).single()
-  if (role?.role !== 'admin') redirect('/admin/login')
+  if (role?.role !== 'admin') {
+    await supabase.auth.signOut()
+    redirect('/admin/login')
+  }
 
   return (
     <div className="flex min-h-screen bg-bg-secondary">
