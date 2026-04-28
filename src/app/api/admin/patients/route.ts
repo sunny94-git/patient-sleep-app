@@ -46,7 +46,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: patErr.message }, { status: 500 })
   }
 
-  await supabase.from('user_roles').insert({ id: authUser.user.id, role: 'patient', patient_id: patient.id })
+  const { error: roleErr } = await adminClient.from('user_roles').insert({ id: authUser.user.id, role: 'patient', patient_id: patient.id })
+  if (roleErr) {
+    await adminClient.auth.admin.deleteUser(authUser.user.id)
+    await supabase.from('patients').delete().eq('id', patient.id)
+    return NextResponse.json({ error: roleErr.message }, { status: 500 })
+  }
 
   return NextResponse.json(patient, { status: 201 })
 }
