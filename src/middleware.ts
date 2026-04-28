@@ -32,10 +32,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 이미 로그인 → 환자 로그인 페이지 접근 시 홈으로
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/home', request.url))
-  }
+  // 이미 로그인 → 루트 또는 환자 로그인 페이지는 page.tsx가 역할별 분기 처리
+  // (여기서는 별도 리다이렉트 없이 page.tsx에 위임)
 
   return supabaseResponse
 }
