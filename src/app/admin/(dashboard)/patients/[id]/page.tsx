@@ -43,6 +43,10 @@ const SEVERITY_STYLE: Record<string, string> = {
   심각: 'bg-danger/10 text-danger',
 }
 
+const SEVERITIES = ['경미', '중등도', '심각']
+
+const emptyDisorderForm = { diagnosis: '', severity: '', onset_date: '', notes: '' }
+
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -54,12 +58,23 @@ export default function PatientDetailPage() {
   const [prescForm, setPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
   const [prescSubmitting, setPrescSubmitting] = useState(false)
 
+  // 진단 상태
+  const [showDisorderForm, setShowDisorderForm] = useState(false)
+  const [disorderForm, setDisorderForm] = useState(emptyDisorderForm)
+  const [disorderSubmitting, setDisorderSubmitting] = useState(false)
+  const [editingDisorder, setEditingDisorder] = useState<SleepDisorder | null>(null)
+  const [editForm, setEditForm] = useState(emptyDisorderForm)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   useEffect(() => {
     fetch(`/api/admin/patients/${id}`)
       .then(r => r.json())
       .then(d => { setPatient(d); setLoading(false) })
       .catch(() => setLoading(false))
   }, [id])
+
+  const reloadPatient = () =>
+    fetch(`/api/admin/patients/${id}`).then(r => r.json()).then(setPatient)
 
   const handleAddPrescription = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,9 +88,54 @@ export default function PatientDetailPage() {
     if (res.ok) {
       setShowPrescriptionForm(false)
       setPrescForm({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
-      // 새로고침
-      fetch(`/api/admin/patients/${id}`).then(r => r.json()).then(setPatient)
+      reloadPatient()
     }
+  }
+
+  const handleAddDisorder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setDisorderSubmitting(true)
+    const res = await fetch(`/api/admin/patients/${id}/disorders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(disorderForm),
+    })
+    setDisorderSubmitting(false)
+    if (res.ok) {
+      setShowDisorderForm(false)
+      setDisorderForm(emptyDisorderForm)
+      reloadPatient()
+    }
+  }
+
+  const handleEditDisorder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingDisorder) return
+    setDisorderSubmitting(true)
+    const res = await fetch(`/api/admin/patients/${id}/disorders/${editingDisorder.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    })
+    setDisorderSubmitting(false)
+    if (res.ok) {
+      setEditingDisorder(null)
+      reloadPatient()
+    }
+  }
+
+  const handleDeleteDisorder = async (did: string) => {
+    if (!confirm('진단을 삭제하시겠습니까?')) return
+    setDeletingId(did)
+    await fetch(`/api/admin/patients/${id}/disorders/${did}`, { method: 'DELETE' })
+    setDeletingId(null)
+    reloadPatient()
+  }
+
+  const startEdit = (d: SleepDisorder) => {
+    setEditingDisorder(d)
+    setEditForm({ diagnosis: d.diagnosis, severity: d.severity ?? '', onset_date: d.onset_date ?? '', notes: d.notes ?? '' })
+    setShowDisorderForm(false)
   }
 
   if (loading) {
@@ -127,27 +187,177 @@ export default function PatientDetailPage() {
         )}
       </div>
 
-      {/* 진단 정보 */}
-      {patient.sleep_disorders.length > 0 && (
-        <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5">
-          <h2 className="text-base font-semibold text-text-primary mb-4">수면장애 진단</h2>
+      {/* 수면장애 진단 */}
+      <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-text-primary">수면장애 진단</h2>
+          <button
+            onClick={() => { setShowDisorderForm(!showDisorderForm); setEditingDisorder(null) }}
+            className="text-sm text-brand-600 font-medium hover:text-brand-700"
+          >
+            {showDisorderForm ? '취소' : '+ 진단 추가'}
+          </button>
+        </div>
+
+        {/* 진단 추가 폼 */}
+        {showDisorderForm && (
+          <form onSubmit={handleAddDisorder} className="mb-4 p-4 bg-bg-secondary rounded-[--radius-sm] space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">진단명 *</label>
+              <input
+                type="text"
+                required
+                value={disorderForm.diagnosis}
+                onChange={e => setDisorderForm(f => ({ ...f, diagnosis: e.target.value }))}
+                placeholder="예: 만성 불면증"
+                className={inputCls}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">중증도</label>
+                <select
+                  value={disorderForm.severity}
+                  onChange={e => setDisorderForm(f => ({ ...f, severity: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="">선택 안 함</option>
+                  {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">발병일</label>
+                <input
+                  type="date"
+                  value={disorderForm.onset_date}
+                  onChange={e => setDisorderForm(f => ({ ...f, onset_date: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">메모</label>
+              <input
+                type="text"
+                value={disorderForm.notes}
+                onChange={e => setDisorderForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="추가 메모"
+                className={inputCls}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={disorderSubmitting}
+              className="w-full py-2 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+            >
+              {disorderSubmitting ? '저장 중...' : '저장'}
+            </button>
+          </form>
+        )}
+
+        {/* 진단 목록 */}
+        {patient.sleep_disorders.length === 0 && !showDisorderForm ? (
+          <p className="text-text-muted text-sm">등록된 진단이 없습니다.</p>
+        ) : (
           <div className="space-y-3">
             {patient.sleep_disorders.map(d => (
-              <div key={d.id} className="flex items-start gap-3">
-                <div className="flex-1">
-                  <p className="font-medium text-text-primary text-sm">{d.diagnosis}</p>
-                  {d.notes && <p className="text-text-muted text-xs mt-0.5">{d.notes}</p>}
-                </div>
-                {d.severity && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SEVERITY_STYLE[d.severity] ?? 'bg-bg-tertiary text-text-muted'}`}>
-                    {d.severity}
-                  </span>
+              <div key={d.id}>
+                {editingDisorder?.id === d.id ? (
+                  /* 인라인 수정 폼 */
+                  <form onSubmit={handleEditDisorder} className="p-4 bg-bg-secondary rounded-[--radius-sm] space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">진단명 *</label>
+                      <input
+                        type="text"
+                        required
+                        value={editForm.diagnosis}
+                        onChange={e => setEditForm(f => ({ ...f, diagnosis: e.target.value }))}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">중증도</label>
+                        <select
+                          value={editForm.severity}
+                          onChange={e => setEditForm(f => ({ ...f, severity: e.target.value }))}
+                          className={inputCls}
+                        >
+                          <option value="">선택 안 함</option>
+                          {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">발병일</label>
+                        <input
+                          type="date"
+                          value={editForm.onset_date}
+                          onChange={e => setEditForm(f => ({ ...f, onset_date: e.target.value }))}
+                          className={inputCls}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">메모</label>
+                      <input
+                        type="text"
+                        value={editForm.notes}
+                        onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={disorderSubmitting}
+                        className="flex-1 py-2 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+                      >
+                        {disorderSubmitting ? '저장 중...' : '수정 저장'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDisorder(null)}
+                        className="px-4 py-2 border border-bg-tertiary rounded-[--radius-sm] text-sm text-text-secondary hover:bg-bg-secondary"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* 진단 표시 */
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-text-primary text-sm">{d.diagnosis}</p>
+                      {d.onset_date && <p className="text-text-muted text-xs mt-0.5">발병일: {formatDate(d.onset_date)}</p>}
+                      {d.notes && <p className="text-text-muted text-xs mt-0.5">{d.notes}</p>}
+                    </div>
+                    {d.severity && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SEVERITY_STYLE[d.severity] ?? 'bg-bg-tertiary text-text-muted'}`}>
+                        {d.severity}
+                      </span>
+                    )}
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => startEdit(d)}
+                        className="text-xs text-brand-600 hover:text-brand-700 px-2 py-1 rounded hover:bg-bg-secondary"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDisorder(d.id)}
+                        disabled={deletingId === d.id}
+                        className="text-xs text-danger hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 바로가기 */}
       <div className="grid grid-cols-2 gap-3">
