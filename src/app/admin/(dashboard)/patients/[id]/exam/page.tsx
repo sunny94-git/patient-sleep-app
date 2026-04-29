@@ -38,10 +38,12 @@ export default function AdminExamPage() {
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState('HRV')
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<ExamForm>({ exam_date: '', exam_type: 'HRV', summary: '', result_data: JSON.stringify(EXAM_TEMPLATES.HRV, null, 2) })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [jsonError, setJsonError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchData = () => {
     setLoading(true)
@@ -56,12 +58,42 @@ export default function AdminExamPage() {
   const setF = (k: keyof ExamForm, v: string) => {
     setForm(prev => {
       const next = { ...prev, [k]: v }
-      if (k === 'exam_type') {
+      if (k === 'exam_type' && !editingId) {
         next.result_data = JSON.stringify(EXAM_TEMPLATES[v] ?? {}, null, 2)
       }
       return next
     })
     if (k === 'result_data') setJsonError('')
+  }
+
+  const openNew = () => {
+    setEditingId(null)
+    setForm({ exam_date: '', exam_type: 'HRV', summary: '', result_data: JSON.stringify(EXAM_TEMPLATES.HRV, null, 2) })
+    setError('')
+    setJsonError('')
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const openEdit = (exam: ExamResult) => {
+    setEditingId(exam.id)
+    setForm({
+      exam_date: exam.exam_date,
+      exam_type: exam.exam_type,
+      summary: exam.summary ?? '',
+      result_data: JSON.stringify(exam.result_data ?? {}, null, 2),
+    })
+    setError('')
+    setJsonError('')
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setError('')
+    setJsonError('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,16 +107,25 @@ export default function AdminExamPage() {
       return
     }
     setSubmitting(true)
-    const res = await fetch(`/api/admin/patients/${id}/exam`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        exam_date: form.exam_date,
-        exam_type: form.exam_type,
-        summary: form.summary || null,
-        result_data: parsedData,
-      }),
-    })
+    const payload = {
+      exam_date: form.exam_date,
+      exam_type: form.exam_type,
+      summary: form.summary || null,
+      result_data: parsedData,
+    }
+
+    const res = editingId
+      ? await fetch(`/api/admin/patients/${id}/exam/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      : await fetch(`/api/admin/patients/${id}/exam`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
     setSubmitting(false)
     if (!res.ok) {
       const d = await res.json()
@@ -92,10 +133,20 @@ export default function AdminExamPage() {
       return
     }
     setShowForm(false)
+    setEditingId(null)
+    fetchData()
+  }
+
+  const handleDelete = async (examId: string) => {
+    if (!confirm('이 검사 결과를 삭제하시겠습니까?')) return
+    setDeletingId(examId)
+    await fetch(`/api/admin/patients/${id}/exam/${examId}`, { method: 'DELETE' })
+    setDeletingId(null)
     fetchData()
   }
 
   const filtered = exams.filter(e => e.exam_type === activeType)
+  const isEditing = editingId !== null
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -103,16 +154,20 @@ export default function AdminExamPage() {
         <button onClick={() => router.back()} className="text-text-muted hover:text-text-primary text-sm">← 환자 정보</button>
         <h1 className="text-2xl font-bold text-text-primary flex-1">검사 결과 입력</h1>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={showForm ? handleCancel : openNew}
           className="px-4 py-2 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-medium hover:bg-brand-700 transition-colors"
         >
           {showForm ? '취소' : '+ 결과 입력'}
         </button>
       </div>
 
-      {/* 입력 폼 */}
+      {/* 입력/수정 폼 */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5 mb-6 space-y-4">
+          <h2 className="font-semibold text-text-primary">
+            {isEditing ? '검사 결과 수정' : '검사 결과 입력'}
+          </h2>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">검사 유형 *</label>
@@ -150,13 +205,22 @@ export default function AdminExamPage() {
 
           {error && <p className="text-danger text-sm">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-2.5 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
-          >
-            {submitting ? '저장 중...' : '저장'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+            >
+              {submitting ? '저장 중...' : isEditing ? '수정 저장' : '저장'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-5 py-2.5 bg-bg-secondary text-text-secondary rounded-[--radius-sm] text-sm font-medium hover:bg-bg-tertiary transition-colors"
+            >
+              취소
+            </button>
+          </div>
         </form>
       )}
 
@@ -190,7 +254,22 @@ export default function AdminExamPage() {
             <div key={exam.id} className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-semibold text-text-primary">{formatDate(exam.exam_date)}</span>
-                <span className="text-xs px-2 py-0.5 bg-brand-50 text-brand-700 rounded-full">{exam.exam_type}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-0.5 bg-brand-50 text-brand-700 rounded-full">{exam.exam_type}</span>
+                  <button
+                    onClick={() => openEdit(exam)}
+                    className="text-brand-500 hover:text-brand-700 text-xs font-medium px-2 py-1 rounded hover:bg-bg-secondary transition-colors"
+                  >
+                    수정
+                  </button>
+                  <button
+                    onClick={() => handleDelete(exam.id)}
+                    disabled={deletingId === exam.id}
+                    className="text-danger hover:text-red-700 text-xs font-medium px-2 py-1 rounded hover:bg-bg-secondary transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === exam.id ? '삭제 중...' : '삭제'}
+                  </button>
+                </div>
               </div>
               {exam.result_data && (
                 <div className="grid grid-cols-2 gap-2 mb-3">
