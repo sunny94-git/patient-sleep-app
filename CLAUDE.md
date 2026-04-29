@@ -80,7 +80,7 @@ src/
 │   │
 │   ├── (patient)/
 │   │   ├── error.tsx                     # 환자 앱 에러 페이지
-│   │   ├── layout.tsx
+│   │   ├── layout.tsx                    # InactivityGuard 포함 (15분 자동 로그아웃)
 │   │   ├── home/page.tsx                 # 홈 탭 (Web Push 구독 포함)
 │   │   ├── diary/page.tsx
 │   │   ├── records/page.tsx              # 기록 탭 (수면/효율/검사/ISI/복약 5개 서브탭)
@@ -96,17 +96,17 @@ src/
 │   │   ├── login/page.tsx
 │   │   └── (dashboard)/
 │   │       ├── error.tsx                 # 관리자 에러 페이지
-│   │       ├── layout.tsx
+│   │       ├── layout.tsx                # InactivityGuard 포함 (15분 자동 로그아웃)
 │   │       ├── dashboard/page.tsx        # 대시보드 (주의환자 카드 포함)
 │   │       ├── patients/
 │   │       │   ├── page.tsx              # 환자 목록 (페이지네이션 + 일지 배지)
 │   │       │   ├── new/page.tsx          # 환자 등록 (등록번호 중복 확인)
 │   │       │   └── [id]/
-│   │       │       ├── page.tsx          # 환자 상세 (진단 CRUD + 처방 수정/삭제 + ISI 탭)
+│   │       │       ├── page.tsx          # 환자 상세 (진단 CRUD + 처방 수정/삭제 + ISI 탭 + CSV 내보내기)
 │   │       │       ├── edit/page.tsx
-│   │       │       ├── sleep/page.tsx
-│   │       │       └── exam/page.tsx
-│   │       └── qna/page.tsx
+│   │       │       ├── sleep/page.tsx    # 수면 데이터 입력·수정 (행 클릭 → 인라인 수정)
+│   │       │       └── exam/page.tsx     # 검사 결과 입력·수정·삭제
+│   │       └── qna/page.tsx              # Q&A 관리 (텍스트 검색 포함)
 │   │
 │   └── api/
 │       ├── push/subscribe/route.ts       # POST/DELETE: Web Push 구독 등록/해제
@@ -115,15 +115,22 @@ src/
 │       └── admin/
 │           ├── patients/check/route.ts   # GET: 등록번호 중복 확인
 │           ├── patients/[id]/route.ts    # GET/PATCH/DELETE: 환자 상세/수정/삭제
+│           ├── patients/[id]/export/route.ts          # GET: 수면 일지 CSV 내보내기
 │           ├── patients/[id]/disorders/route.ts       # GET/POST: 진단 목록/추가
 │           ├── patients/[id]/disorders/[did]/route.ts # PATCH/DELETE: 진단 수정/삭제
 │           ├── patients/[id]/isi/route.ts             # GET: 환자 ISI 이력 (관리자용)
 │           ├── patients/[id]/reset-password/route.ts  # POST: 환자 비밀번호 초기화
+│           ├── patients/[id]/exam/route.ts            # GET/POST: 검사 결과 조회/입력
+│           ├── patients/[id]/exam/[eid]/route.ts      # PATCH/DELETE: 검사 결과 수정/삭제
 │           └── [기존 admin API 동일]
 │
 ├── lib/
 │   ├── push.ts                           # sendPushToPatient() Web Push 발송 유틸
 │   └── supabase/ [기존 동일]
+│
+├── components/
+│   ├── InactivityGuard.tsx               # 15분 비활동 자동 로그아웃 클라이언트 컴포넌트
+│   └── [기존 동일]
 │
 └── public/
     ├── sw.js                             # Service Worker (푸시 알림 수신)
@@ -151,9 +158,9 @@ src/
 - [x] 대시보드 (`/admin/dashboard`) — 통계 카드 + **주의환자 카드** (7일 미작성 / 수면효율 저하)
 - [x] 환자 목록 (`/admin/patients`) — 검색 + **서버사이드 페이지네이션** + **일지 배지**
 - [x] 환자 등록 (`/admin/patients/new`) — **등록번호 중복 확인** 포함
-- [x] 환자 상세 (`/admin/patients/[id]`) — **진단 CRUD** + **처방 수정/삭제** + **ISI 이력 탭**
-- [x] 환자 정보 수정 / 수면 데이터 / 검사 결과 입력
-- [x] Q&A 관리 — 답변 시 **Web Push 알림 발송**
+- [x] 환자 상세 (`/admin/patients/[id]`) — **진단 CRUD** + **처방 수정/삭제** + **ISI 이력 탭** + **CSV 내보내기**
+- [x] 환자 정보 수정 / 수면 데이터 날짜별 수정 / 검사 결과 입력·수정·삭제
+- [x] Q&A 관리 — 답변 시 **Web Push 알림 발송** + **텍스트 검색**
 - [x] 환자 삭제 (`DELETE /api/admin/patients/[id]`)
 - [x] 환자 비밀번호 초기화 (`POST /api/admin/patients/[id]/reset-password`)
 
@@ -164,6 +171,7 @@ src/
 - [x] Web Push (VAPID) — `web-push` 패키지, `public/sw.js` Service Worker
   - Q&A 답변 등록 시 환자에게 푸시 알림 발송
   - `push_subscriptions` 테이블 (별도 migration SQL)
+- [x] 비활동 자동 로그아웃 — `InactivityGuard` 컴포넌트, 15분 무조작 시 signOut
 
 ---
 
@@ -202,7 +210,8 @@ src/
 - [x] 대시보드 주의환자 카드 (7일 미작성 / 수면효율 저하) ✅
 - [x] 환자 등록 등록번호 중복 확인 ✅
 - [x] 기록 탭 복약 이력 탭 ✅
-- [ ] 수면 일지 날짜별 수정 (관리자)
-- [ ] CSV 데이터 내보내기
-- [ ] Q&A 텍스트 검색
-- [ ] 비활동 자동 로그아웃
+- [x] 수면 일지 날짜별 수정 (관리자) ✅
+- [x] 검사 결과 수정·삭제 ✅
+- [x] CSV 데이터 내보내기 ✅
+- [x] Q&A 텍스트 검색 ✅
+- [x] 비활동 자동 로그아웃 ✅

@@ -44,8 +44,8 @@
 
 ### 개발 현황
 
-환자 앱 전체 기능 + 관리자 대시보드 + 핵심 부가 기능까지 구현 완료. Vercel 배포 중.  
-Web Push 알림(Q&A 답변), 수면장애 진단 CRUD, 처방 수정/삭제, 환자 삭제/비밀번호 초기화, 서버사이드 페이지네이션, 커스텀 에러 페이지, 복약 이력 탭 등이 모두 완료된 상태다.
+환자 앱 전체 기능 + 관리자 대시보드 + 모든 계획된 부가 기능까지 구현 완료. Vercel 배포 중.  
+수면 일지 날짜별 수정, 검사 결과 수정·삭제, CSV 내보내기, Q&A 텍스트 검색, 15분 비활동 자동 로그아웃까지 완료. 남은 예정 작업 없음.
 
 ---
 
@@ -288,9 +288,9 @@ Web Push 알림(Q&A 답변), 수면장애 진단 CRUD, 처방 수정/삭제, 환
 
 ---
 
-### 3-4. 수면 데이터 입력 (`/admin/patients/[id]/sleep`)
+### 3-4. 수면 데이터 입력·수정 (`/admin/patients/[id]/sleep`)
 
-환자가 직접 입력할 수 없는 **수면 측정 장비 데이터**를 관리자가 대신 입력하는 화면.
+환자가 직접 입력할 수 없는 **수면 측정 장비 데이터**를 관리자가 대신 입력·수정하는 화면.
 
 **입력 항목**
 
@@ -298,23 +298,29 @@ Web Push 알림(Q&A 답변), 수면장애 진단 CRUD, 처방 수정/삭제, 환
 |------|------|
 | 날짜 | 필수, 해당 날짜의 기록에 upsert |
 | 취침 시각 / 기상 시각 | HH:MM 형식 |
+| 잠드는 데 걸린 시간 | 0~10분 / 10~30분 / 30~60분 / 60분 이상 |
+| 밤중 각성 횟수 | 없음 / 1회 / 2회 / 3회 이상 |
 | 총 수면 (분) | 전체 수면 시간 |
 | 깊은 수면 (분) | deep sleep |
 | 얕은 수면 (분) | light sleep |
 | REM 수면 (분) | REM sleep |
-| 수면의 질 (1~5) | 관리자 평가 또는 장비 측정값 |
-| 아침 피로도 (1~5) | 관리자 평가 |
-| 원장 메모 | 내부용, 환자에게 미표시 |
+| 수면의 질 / 아침 피로도 / 컨디션 (1~5) | 평가 지표 |
+| 낮 졸음 | 없음 / 약간 / 심함 |
+| 낮잠 / 낮잠 시간 | 있음 시 분 단위 추가 입력 |
+| 꿈 / 카페인 / 음주 | 환자 생활 습관 항목 |
+| 환자 메모 / 원장 메모 | 원장 메모는 내부용, 환자에게 미표시 |
 
 - `(patient_id, diary_date)` 기준 upsert → 같은 날짜 재입력 시 덮어씀
+- 하단 테이블 행의 **수정 버튼** 클릭 시 해당 날짜 데이터가 폼에 채워져 인라인 수정 가능
+- 수정 모드에서는 날짜 필드가 비활성화되어 날짜 변경 불가
 - 하단 테이블에서 최근 90일 데이터를 날짜 역순으로 조회
 - 환자 앱 기록 탭의 수면·효율 차트 데이터 소스가 됨
 
 ---
 
-### 3-5. 검사 결과 입력 (`/admin/patients/[id]/exam`)
+### 3-5. 검사 결과 입력·수정·삭제 (`/admin/patients/[id]/exam`)
 
-HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
+HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력·수정·삭제하는 화면.
 
 **검사 유형별 기본 템플릿**
 
@@ -324,10 +330,13 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 | InBody | weight_kg, muscle_kg, fat_kg, fat_pct, BMI, InBody_score |
 | QEEG | delta_pct, theta_pct, alpha_pct, beta_pct, gamma_pct |
 
-- 검사 유형 선택 시 해당 템플릿이 JSON 에디터에 자동 입력됨
+- 검사 유형 선택 시 해당 템플릿이 JSON 에디터에 자동 입력됨 (신규 입력 시만)
 - JSON 에디터에서 항목 이름·값 자유 편집 가능
 - 원장 코멘트(`summary`)는 환자 앱 검사 탭에 표시됨
 - 유형별 서브탭으로 기존 결과 카드 형태로 조회
+- 각 카드에 **수정 버튼**: 클릭 시 해당 결과를 폼에 채워 인라인 수정
+- 각 카드에 **삭제 버튼**: 확인 다이얼로그 없이 즉시 삭제 (`DELETE /api/admin/patients/[id]/exam/[eid]`)
+- API: `PATCH/DELETE /api/admin/patients/[id]/exam/[eid]`
 
 ---
 
@@ -335,7 +344,8 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 
 환자가 보낸 문의를 조회하고 인라인으로 답변을 작성하는 화면.
 
-- **필터**: 전체 / 미답변 / 답변완료 탭 전환
+- **텍스트 검색**: 질문 내용·환자명·등록번호로 실시간 클라이언트사이드 필터링
+- **필터**: 전체 / 미답변 / 답변완료 탭 전환 (검색과 조합 가능)
 - **미답변 건수** 페이지 상단에 빨간 텍스트로 표시
 - 각 문의 카드 클릭 시 확장 → 질문 전문 + 답변 textarea 노출
 - 답변 등록 시 `qna` 테이블 업데이트:
@@ -400,9 +410,10 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 - **환자 목록**: 이름/등록번호 실시간 검색, 서버사이드 페이지네이션(20건/페이지), 일지 배지
 - **환자 등록**: 등록번호 실시간 중복 확인, Supabase Auth 계정 자동 생성, 실패 시 Auth 계정 롤백
 - **환자 상세**: 기본정보·진단 CRUD·처방 수정/삭제·ISI 이력 탭, 환자 삭제, 비밀번호 초기화
-- **수면 데이터**: 날짜 기준 upsert, 최근 90일 테이블 조회
-- **검사 결과**: 유형별 JSON 템플릿 자동 입력, 유형별 서브탭 조회
-- **Q&A 관리**: 전체/미답변/답변완료 필터, 인라인 textarea 답변 작성, 답변 시 Web Push 발송
+- **수면 데이터**: 날짜 기준 upsert, 행 수정 버튼으로 인라인 편집, 최근 90일 테이블 조회
+- **검사 결과**: 유형별 JSON 템플릿 자동 입력, 유형별 서브탭 조회, 카드별 수정·삭제 버튼
+- **Q&A 관리**: 전체/미답변/답변완료 필터, 텍스트 검색, 인라인 textarea 답변 작성, 답변 시 Web Push 발송
+- **CSV 내보내기**: 환자 상세 헤더의 "CSV 내보내기" 버튼 → 수면 일지 전 항목 다운로드 (BOM 포함, Excel 호환)
 - **에러 페이지**: 관리자 레이아웃 내 전용 `error.tsx`
 
 ---
@@ -441,8 +452,10 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 | `/api/admin/patients/[id]/disorders` | GET / POST | 진단 목록 / 진단 추가 |
 | `/api/admin/patients/[id]/disorders/[did]` | PATCH / DELETE | 진단 수정 / 삭제 |
 | `/api/admin/patients/[id]/isi` | GET | 환자 ISI 이력 (관리자용) |
-| `/api/admin/patients/[id]/sleep` | GET / POST | 수면 데이터 조회 / 입력 |
+| `/api/admin/patients/[id]/sleep` | GET / POST | 수면 데이터 조회 / 입력·수정 (upsert) |
 | `/api/admin/patients/[id]/exam` | GET / POST | 검사 결과 조회 / 입력 |
+| `/api/admin/patients/[id]/exam/[eid]` | PATCH / DELETE | 검사 결과 수정 / 삭제 |
+| `/api/admin/patients/[id]/export` | GET | 수면 일지 CSV 내보내기 |
 | `/api/admin/patients/[id]/prescriptions` | POST | 처방 추가 |
 | `/api/admin/patients/[id]/prescriptions/[pid]` | PATCH / DELETE | 처방 수정 / 삭제 |
 | `/api/admin/qna` | GET | Q&A 전체 목록 (환자 정보 join) |
@@ -457,6 +470,7 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 - **디자인 시스템** (`src/app/globals.css`): Tailwind v4 `@theme inline` 토큰 정의
 - **공통 유틸** (`src/lib/utils.ts`): `cn()`, `calcSleepEfficiency()`, `getIsiLevel()`, `getSleepEfficiencyLevel()`
 - **관리자 가드** (`src/lib/supabase/admin-guard.ts`): `requireAdmin()` — 모든 admin API에 적용
+- **비활동 로그아웃** (`src/components/InactivityGuard.tsx`): 15분 무조작 시 `signOut()` 후 로그인 페이지 이동. 환자 레이아웃(`/login`)·관리자 레이아웃(`/admin/login`) 양쪽에 적용. 감지 이벤트: `mousemove`, `keydown`, `mousedown`, `touchstart`, `scroll`
 - **Vercel 배포**: `https://patient-sleep-app.vercel.app`, 환경 변수 등록 완료
 - **Supabase Auth Redirect URL**: 프로덕션 URL 등록 완료
 - **관리자 계정**: `admin@clinic.com` Supabase Auth + `user_roles` 등록 완료
@@ -487,9 +501,9 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 
 ### 5-3. 관리자 대시보드 미완성 기능
 
-#### 검사 결과 수정·삭제
-- 현재: 검사 결과 입력(POST)과 조회(GET)만 가능
-- 미구현: 기존 결과 수정·삭제 UI 및 API 없음
+#### 검사 결과 수정·삭제 ✅ 완료
+- `PATCH/DELETE /api/admin/patients/[id]/exam/[eid]` 추가
+- 각 검사 결과 카드에 수정·삭제 버튼 추가
 
 ---
 
@@ -506,11 +520,13 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력하는 화면.
 | 항목 | 현황 | 비고 |
 |------|------|------|
 | 환자 목록 페이지네이션 | ✅ 완료 (20건/페이지, 서버사이드) | — |
-| 수면 일지 과거 수정 | 오늘 날짜만 upsert 가능 | 과거 날짜 수정 불가 |
-| 관리자 복약 현황 조회 | 별도 화면 없음 | 수면 데이터 입력 화면에서 확인 가능 |
+| 수면 일지 날짜별 수정 (관리자) | ✅ 완료 — 행 수정 버튼, 전 항목 인라인 편집 | — |
+| 검사 결과 수정·삭제 | ✅ 완료 — 카드별 수정·삭제 버튼 | — |
+| CSV 데이터 내보내기 | ✅ 완료 — 수면 일지 전 항목, Excel BOM | — |
+| Q&A 텍스트 검색 | ✅ 완료 — 질문·환자명·등록번호 검색 | — |
+| 비활동 자동 로그아웃 | ✅ 완료 — 15분, 환자·관리자 공통 | — |
+| 관리자 복약 현황 조회 | 별도 화면 없음 | CSV 내보내기로 대체 가능 |
 | 에러 페이지 | ✅ 완료 — 커스텀 `error.tsx`, `not-found.tsx` 4종 | — |
-| CSV 데이터 내보내기 | 미구현 | — |
-| Q&A 텍스트 검색 | 미구현 | — |
 
 ---
 
@@ -645,6 +661,7 @@ src/
 │       └── admin-guard.ts      # requireAdmin() — 관리자 API 인증 유틸
 │
 ├── components/
+│   ├── InactivityGuard.tsx     # 15분 비활동 자동 로그아웃 클라이언트 컴포넌트
 │   ├── ui/
 │   │   └── button.tsx          # CVA 기반 공통 버튼 (variant: primary/secondary/ghost/danger)
 │   ├── layout/
@@ -668,7 +685,7 @@ src/
     │
     ├── (patient)/              # 라우트 그룹 — URL에 영향 없음, 인증 보호
     │   ├── error.tsx           # 환자 앱 에러 페이지 (pb-20 탭바 패딩)
-    │   ├── layout.tsx          # BottomTabBar 삽입 + 하단 72px 패딩
+    │   ├── layout.tsx          # BottomTabBar + InactivityGuard(→/login) 삽입
     │   ├── home/
     │   │   └── page.tsx        # 홈 탭 (Web Push 구독 토글 포함)
     │   ├── diary/
@@ -692,7 +709,7 @@ src/
     │   │   └── page.tsx        # 관리자 로그인 (이메일 + 비밀번호 + role 검증)
     │   └── (dashboard)/        # 라우트 그룹 — 관리자 레이아웃 적용
     │       ├── error.tsx       # 관리자 에러 페이지
-    │       ├── layout.tsx      # AdminSidebar + role=admin 서버사이드 검증
+    │       ├── layout.tsx      # AdminSidebar + role=admin 검증 + InactivityGuard(→/admin/login)
     │       ├── dashboard/
     │       │   └── page.tsx    # 통계 대시보드 (주의환자 카드 포함)
     │       ├── patients/
@@ -700,15 +717,15 @@ src/
     │       │   ├── new/
     │       │   │   └── page.tsx    # 환자 등록 (등록번호 중복 확인)
     │       │   └── [id]/
-    │       │       ├── page.tsx    # 환자 상세 (진단 CRUD + 처방 수정/삭제 + ISI 탭 + 삭제/비번초기화)
+    │       │       ├── page.tsx    # 환자 상세 (진단 CRUD + 처방 수정/삭제 + ISI 탭 + 삭제/비번초기화 + CSV 내보내기)
     │       │       ├── edit/
     │       │       │   └── page.tsx    # 환자 정보 수정
     │       │       ├── sleep/
-    │       │       │   └── page.tsx    # 수면 데이터 입력·조회
+    │       │       │   └── page.tsx    # 수면 데이터 입력·날짜별 수정
     │       │       └── exam/
-    │       │           └── page.tsx    # 검사 결과 입력·조회
+    │       │           └── page.tsx    # 검사 결과 입력·수정·삭제
     │       └── qna/
-    │           └── page.tsx    # Q&A 관리 (필터·인라인 답변·Web Push 발송)
+    │           └── page.tsx    # Q&A 관리 (텍스트 검색·필터·인라인 답변·Web Push 발송)
     │
     └── api/                    # Route Handlers — 모두 서버 실행
         ├── diary/
@@ -764,9 +781,13 @@ src/
             │       ├── isi/
             │       │   └── route.ts    # GET: 환자 ISI 이력 (관리자용)
             │       ├── sleep/
-            │       │   └── route.ts    # GET/POST: 수면 데이터
+            │       │   └── route.ts    # GET/POST: 수면 데이터 조회·입력(upsert)
             │       ├── exam/
-            │       │   └── route.ts    # GET/POST: 검사 결과
+            │       │   ├── route.ts    # GET/POST: 검사 결과 조회·입력
+            │       │   └── [eid]/
+            │       │       └── route.ts    # PATCH/DELETE: 검사 결과 수정·삭제
+            │       ├── export/
+            │       │   └── route.ts    # GET: 수면 일지 CSV 내보내기
             │       └── prescriptions/
             │           ├── route.ts    # POST: 처방 추가
             │           └── [pid]/
@@ -1297,11 +1318,13 @@ if (error) return error
 | ~~8~~ | ~~커스텀 에러 페이지~~ | ~~낮음~~ | ✅ 완료 |
 | ~~9~~ | ~~Web Push 알림 (Q&A 답변)~~ | ~~중간~~ | ✅ 완료 |
 | ~~10~~ | ~~복약 이력 탭~~ | ~~낮음~~ | ✅ 완료 |
-| 1 | 수면 일지 날짜별 수정 (관리자) | 중간 | 관리자가 특정 날짜 일지를 직접 수정 |
-| 2 | 검사 결과 수정·삭제 | 중간 | API + UI 추가 |
-| 3 | CSV 데이터 내보내기 | 중간 | 환자별 수면 데이터 CSV 다운로드 |
-| 4 | Q&A 텍스트 검색 | 낮음 | 키워드 필터 추가 |
-| 5 | 비활동 자동 로그아웃 | 낮음 | 15분 무조작 시 자동 signOut |
+| ~~11~~ | ~~수면 일지 날짜별 수정 (관리자)~~ | ~~중간~~ | ✅ 완료 — 행 수정 버튼, 전 항목 인라인 편집 |
+| ~~12~~ | ~~검사 결과 수정·삭제~~ | ~~중간~~ | ✅ 완료 — `PATCH/DELETE /api/.../exam/[eid]` |
+| ~~13~~ | ~~CSV 데이터 내보내기~~ | ~~중간~~ | ✅ 완료 — `GET /api/.../export`, BOM 포함 |
+| ~~14~~ | ~~Q&A 텍스트 검색~~ | ~~낮음~~ | ✅ 완료 — 질문·환자명·등록번호 클라이언트 필터 |
+| ~~15~~ | ~~비활동 자동 로그아웃~~ | ~~낮음~~ | ✅ 완료 — `InactivityGuard` 15분 |
+
+**현재 계획된 모든 작업이 완료된 상태. 남은 예정 작업 없음.**
 
 ---
 
@@ -1426,7 +1449,7 @@ DB 테이블 (`sleep_disorders`):
 |------|------|
 | 프로덕션 URL | `https://patient-sleep-app.vercel.app` |
 | 배포 브랜치 | `main` |
-| 최신 main 커밋 | 핵심기능 — 대시보드 주의환자·환자목록 일지배지·등록번호 중복확인·복약 이력 탭 |
+| 최신 main 커밋 | 수면 일지 날짜별 수정·검사 결과 수정삭제·CSV 내보내기·Q&A 검색·비활동 자동 로그아웃 |
 | 빌드 결과 | ✅ 성공 |
 
 ### 13-2. 실제 동작 확인 완료 항목
@@ -1443,6 +1466,11 @@ DB 테이블 (`sleep_disorders`):
 | 처방 수정·삭제 UI | ✅ 배포 완료 |
 | 환자 삭제·비밀번호 초기화 | ✅ 배포 완료 |
 | 복약 이력 탭 | ✅ 배포 완료 |
+| 수면 일지 날짜별 수정 | ✅ 배포 완료 |
+| 검사 결과 수정·삭제 | ✅ 배포 완료 |
+| CSV 데이터 내보내기 | ✅ 배포 완료 |
+| Q&A 텍스트 검색 | ✅ 배포 완료 |
+| 비활동 자동 로그아웃 (15분) | ✅ 배포 완료 |
 
 ### 13-3. 배포 URL 진입 가능 여부
 
@@ -1525,10 +1553,10 @@ WHERE email = '실제관리자이메일@example.com';
 
 | 항목 | 내용 |
 |------|------|
-| 수면 일지 날짜 | 오늘 날짜만 upsert 가능. 과거 날짜 수정 불가 |
+| 수면 일지 날짜 (환자 앱) | 환자는 오늘 날짜만 작성 가능. 관리자는 `/admin/patients/[id]/sleep`에서 날짜별 수정 가능 |
 | 복약 체크 | 오늘 일지가 없을 때 자동 upsert — 취침·기상 시각 없이 복약 필드만 생성됨 |
 | 알림 | Q&A 답변 시 즉시 푸시 구현됨. 일지·복약 예약 알림은 cron 미구현 |
-| 환자 목록 페이지네이션 | ✅ 서버사이드 20건/페이지 구현됨 |
+| 비활동 로그아웃 | 15분 타이머. 탭 전환 후 돌아오면 이벤트가 없어 타이머 계속 진행됨 (의도된 동작) |
 | 관리자 앱 모바일 | 사이드바 + 컨텐츠 레이아웃. 모바일 반응형 미구현 — 데스크톱 전용 |
 | 환자 시크릿 모드 | 관리자 로그인 상태에서 환자 로그인 테스트 시 시크릿 탭 사용 필요 (세션 충돌 방지) |
 
