@@ -12,6 +12,14 @@ interface DiaryRow {
   night_awakening_count: string | null
   sleep_quality: number | null
   morning_fatigue: number | null
+  condition: number | null
+  daytime_sleepiness: string | null
+  nap_taken: boolean | null
+  nap_duration_min: number | null
+  dream: string | null
+  caffeine: string | null
+  alcohol: boolean | null
+  memo: string | null
   total_sleep_min: number | null
   deep_sleep_min: number | null
   light_sleep_min: number | null
@@ -23,6 +31,16 @@ interface SleepForm {
   diary_date: string
   bedtime: string
   wake_time: string
+  sleep_onset_latency: string
+  night_awakening_count: string
+  daytime_sleepiness: string
+  nap_taken: string
+  nap_duration_min: string
+  dream: string
+  caffeine: string
+  alcohol: string
+  condition: string
+  memo: string
   total_sleep_min: string
   deep_sleep_min: string
   light_sleep_min: string
@@ -36,6 +54,16 @@ const EMPTY_FORM: SleepForm = {
   diary_date: '',
   bedtime: '',
   wake_time: '',
+  sleep_onset_latency: '',
+  night_awakening_count: '',
+  daytime_sleepiness: '',
+  nap_taken: '',
+  nap_duration_min: '',
+  dream: '',
+  caffeine: '',
+  alcohol: '',
+  condition: '',
+  memo: '',
   total_sleep_min: '',
   deep_sleep_min: '',
   light_sleep_min: '',
@@ -43,6 +71,31 @@ const EMPTY_FORM: SleepForm = {
   sleep_quality: '',
   morning_fatigue: '',
   admin_note: '',
+}
+
+function rowToForm(r: DiaryRow): SleepForm {
+  return {
+    diary_date: r.diary_date,
+    bedtime: r.bedtime ?? '',
+    wake_time: r.wake_time ?? '',
+    sleep_onset_latency: r.sleep_onset_latency ?? '',
+    night_awakening_count: r.night_awakening_count ?? '',
+    daytime_sleepiness: r.daytime_sleepiness ?? '',
+    nap_taken: r.nap_taken === true ? 'true' : r.nap_taken === false ? 'false' : '',
+    nap_duration_min: r.nap_duration_min != null ? String(r.nap_duration_min) : '',
+    dream: r.dream ?? '',
+    caffeine: r.caffeine ?? '',
+    alcohol: r.alcohol === true ? 'true' : r.alcohol === false ? 'false' : '',
+    condition: r.condition != null ? String(r.condition) : '',
+    memo: r.memo ?? '',
+    total_sleep_min: r.total_sleep_min != null ? String(r.total_sleep_min) : '',
+    deep_sleep_min: r.deep_sleep_min != null ? String(r.deep_sleep_min) : '',
+    light_sleep_min: r.light_sleep_min != null ? String(r.light_sleep_min) : '',
+    rem_sleep_min: r.rem_sleep_min != null ? String(r.rem_sleep_min) : '',
+    sleep_quality: r.sleep_quality != null ? String(r.sleep_quality) : '',
+    morning_fatigue: r.morning_fatigue != null ? String(r.morning_fatigue) : '',
+    admin_note: r.admin_note ?? '',
+  }
 }
 
 function formatDate(str: string) {
@@ -55,6 +108,7 @@ export default function AdminSleepPage() {
   const [rows, setRows] = useState<DiaryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingDate, setEditingDate] = useState<string | null>(null)
   const [form, setForm] = useState<SleepForm>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -71,6 +125,29 @@ export default function AdminSleepPage() {
 
   const set = (k: keyof SleepForm, v: string) => setForm(prev => ({ ...prev, [k]: v }))
 
+  const openNew = () => {
+    setEditingDate(null)
+    setForm(EMPTY_FORM)
+    setError('')
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const openEdit = (row: DiaryRow) => {
+    setEditingDate(row.diary_date)
+    setForm(rowToForm(row))
+    setError('')
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditingDate(null)
+    setForm(EMPTY_FORM)
+    setError('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.diary_date) { setError('날짜를 선택해주세요.'); return }
@@ -81,6 +158,16 @@ export default function AdminSleepPage() {
       diary_date: form.diary_date,
       bedtime: form.bedtime || null,
       wake_time: form.wake_time || null,
+      sleep_onset_latency: form.sleep_onset_latency || null,
+      night_awakening_count: form.night_awakening_count || null,
+      daytime_sleepiness: form.daytime_sleepiness || null,
+      nap_taken: form.nap_taken === 'true' ? true : form.nap_taken === 'false' ? false : null,
+      nap_duration_min: form.nap_duration_min ? parseInt(form.nap_duration_min) : null,
+      dream: form.dream || null,
+      caffeine: form.caffeine || null,
+      alcohol: form.alcohol === 'true' ? true : form.alcohol === 'false' ? false : null,
+      condition: form.condition ? parseInt(form.condition) : null,
+      memo: form.memo || null,
       total_sleep_min: form.total_sleep_min ? parseInt(form.total_sleep_min) : null,
       deep_sleep_min: form.deep_sleep_min ? parseInt(form.deep_sleep_min) : null,
       light_sleep_min: form.light_sleep_min ? parseInt(form.light_sleep_min) : null,
@@ -102,9 +189,12 @@ export default function AdminSleepPage() {
       return
     }
     setShowForm(false)
+    setEditingDate(null)
     setForm(EMPTY_FORM)
     fetchData()
   }
+
+  const isEditing = editingDate !== null
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -112,23 +202,33 @@ export default function AdminSleepPage() {
         <button onClick={() => router.back()} className="text-text-muted hover:text-text-primary text-sm">← 환자 정보</button>
         <h1 className="text-2xl font-bold text-text-primary flex-1">수면 데이터 입력</h1>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={showForm ? handleCancel : openNew}
           className="px-4 py-2 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-medium hover:bg-brand-700 transition-colors"
         >
           {showForm ? '취소' : '+ 데이터 입력'}
         </button>
       </div>
 
-      {/* 입력 폼 */}
+      {/* 입력/수정 폼 */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5 mb-6 space-y-4">
-          <h2 className="font-semibold text-text-primary">수면 데이터 입력</h2>
+          <h2 className="font-semibold text-text-primary">
+            {isEditing ? `수면 데이터 수정 — ${formatDate(editingDate!)}` : '수면 데이터 입력'}
+          </h2>
 
           <div>
             <label className="label">날짜 *</label>
-            <input type="date" required value={form.diary_date} onChange={e => set('diary_date', e.target.value)} className={inputCls} />
+            <input
+              type="date"
+              required
+              value={form.diary_date}
+              onChange={e => set('diary_date', e.target.value)}
+              disabled={isEditing}
+              className={`${inputCls} ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
+            />
           </div>
 
+          {/* 취침/기상 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">취침 시각</label>
@@ -140,6 +240,25 @@ export default function AdminSleepPage() {
             </div>
           </div>
 
+          {/* 수면 잠들기·각성 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">잠드는 데 걸린 시간</label>
+              <select value={form.sleep_onset_latency} onChange={e => set('sleep_onset_latency', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                {['0~10분', '10~30분', '30~60분', '60분 이상'].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">밤중 각성 횟수</label>
+              <select value={form.night_awakening_count} onChange={e => set('night_awakening_count', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                {['없음', '1회', '2회', '3회 이상'].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* 수면 측정 데이터 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">총 수면 (분)</label>
@@ -159,6 +278,7 @@ export default function AdminSleepPage() {
             </div>
           </div>
 
+          {/* 주관적 평가 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">수면의 질 (1–5)</label>
@@ -174,6 +294,72 @@ export default function AdminSleepPage() {
                 {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
+            <div>
+              <label className="label">낮 졸음</label>
+              <select value={form.daytime_sleepiness} onChange={e => set('daytime_sleepiness', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                {['없음', '약간', '심함'].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">오늘 컨디션 (1–5)</label>
+              <select value={form.condition} onChange={e => set('condition', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* 낮잠·꿈·카페인·음주 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">낮잠</label>
+              <select value={form.nap_taken} onChange={e => set('nap_taken', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                <option value="false">없음</option>
+                <option value="true">있음</option>
+              </select>
+            </div>
+            {form.nap_taken === 'true' && (
+              <div>
+                <label className="label">낮잠 시간 (분)</label>
+                <input type="number" min="0" max="480" value={form.nap_duration_min} onChange={e => set('nap_duration_min', e.target.value)} placeholder="30" className={inputCls} />
+              </div>
+            )}
+            <div>
+              <label className="label">꿈</label>
+              <select value={form.dream} onChange={e => set('dream', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                {['없음', '기억 안남', '꿈꿈'].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">카페인 섭취</label>
+              <select value={form.caffeine} onChange={e => set('caffeine', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                {['없음', '1잔', '2잔', '3잔 이상'].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">음주</label>
+              <select value={form.alcohol} onChange={e => set('alcohol', e.target.value)} className={inputCls}>
+                <option value="">선택</option>
+                <option value="false">없음</option>
+                <option value="true">있음</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 메모·원장 메모 */}
+          <div>
+            <label className="label">환자 메모</label>
+            <textarea
+              rows={2}
+              value={form.memo}
+              onChange={e => set('memo', e.target.value)}
+              placeholder="환자가 입력한 메모"
+              className={`${inputCls} resize-none`}
+            />
           </div>
 
           <div>
@@ -189,13 +375,22 @@ export default function AdminSleepPage() {
 
           {error && <p className="text-danger text-sm">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-2.5 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
-          >
-            {submitting ? '저장 중...' : '저장'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+            >
+              {submitting ? '저장 중...' : isEditing ? '수정 저장' : '저장'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-5 py-2.5 bg-bg-secondary text-text-secondary rounded-[--radius-sm] text-sm font-medium hover:bg-bg-tertiary transition-colors"
+            >
+              취소
+            </button>
+          </div>
         </form>
       )}
 
@@ -221,6 +416,7 @@ export default function AdminSleepPage() {
                 <th className="text-right px-4 py-3 font-semibold text-text-secondary">깊은</th>
                 <th className="text-right px-4 py-3 font-semibold text-text-secondary">REM</th>
                 <th className="text-center px-4 py-3 font-semibold text-text-secondary">질</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-bg-tertiary">
@@ -233,6 +429,14 @@ export default function AdminSleepPage() {
                   <td className="px-4 py-3 text-right text-text-secondary">{r.deep_sleep_min != null ? `${r.deep_sleep_min}m` : '-'}</td>
                   <td className="px-4 py-3 text-right text-text-secondary">{r.rem_sleep_min != null ? `${r.rem_sleep_min}m` : '-'}</td>
                   <td className="px-4 py-3 text-center text-text-secondary">{r.sleep_quality ?? '-'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => openEdit(r)}
+                      className="text-brand-500 hover:text-brand-700 text-xs font-medium px-2 py-1 rounded hover:bg-bg-secondary transition-colors"
+                    >
+                      수정
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
