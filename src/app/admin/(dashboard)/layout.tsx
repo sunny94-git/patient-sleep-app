@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
+import InactivityGuard from '@/components/InactivityGuard'
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -16,6 +17,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
 
   return (
     <div className="flex min-h-screen bg-bg-secondary">
+      <InactivityGuard redirectTo="/admin/login" />
       <AdminSidebar />
       <main className="flex-1 overflow-auto">
         {children}
