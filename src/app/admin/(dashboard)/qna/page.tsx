@@ -20,6 +20,7 @@ export default function AdminQnaPage() {
   const [list, setList] = useState<QnaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unanswered' | 'answered'>('all')
+  const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
@@ -34,10 +35,16 @@ export default function AdminQnaPage() {
 
   useEffect(() => { fetchData() }, [])
 
+  const keyword = search.trim().toLowerCase()
   const filtered = list.filter(q => {
-    if (filter === 'unanswered') return !q.is_answered
-    if (filter === 'answered') return q.is_answered
-    return true
+    if (filter === 'unanswered' && q.is_answered) return false
+    if (filter === 'answered' && !q.is_answered) return false
+    if (!keyword) return true
+    return (
+      q.question.toLowerCase().includes(keyword) ||
+      (q.patients?.name ?? '').toLowerCase().includes(keyword) ||
+      (q.patients?.registration_number ?? '').toLowerCase().includes(keyword)
+    )
   })
 
   const handleAnswer = async (id: string) => {
@@ -68,6 +75,17 @@ export default function AdminQnaPage() {
             <p className="text-sm text-danger mt-1">미답변 {unansweredCount}건</p>
           )}
         </div>
+      </div>
+
+      {/* 검색 */}
+      <div className="mb-4">
+        <input
+          type="search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="질문 내용, 환자명, 등록번호 검색"
+          className="w-full max-w-sm px-3 py-2 rounded-[--radius-sm] border border-bg-tertiary bg-bg-secondary text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-brand-400 text-sm"
+        />
       </div>
 
       {/* 필터 */}
