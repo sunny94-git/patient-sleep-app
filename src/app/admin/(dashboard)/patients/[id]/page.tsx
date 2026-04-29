@@ -81,6 +81,15 @@ export default function PatientDetailPage() {
   const [editForm, setEditForm] = useState(emptyDisorderForm)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // 비밀번호 초기화 상태
+  const [showResetPw, setShowResetPw] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [resetPwLoading, setResetPwLoading] = useState(false)
+  const [resetPwMsg, setResetPwMsg] = useState<{ text: string; ok: boolean } | null>(null)
+
+  // 환자 삭제 상태
+  const [deleting, setDeleting] = useState(false)
+
   useEffect(() => {
     Promise.all([
       fetch(`/api/admin/patients/${id}`).then(r => r.json()),
@@ -94,6 +103,39 @@ export default function PatientDetailPage() {
 
   const reloadPatient = () =>
     fetch(`/api/admin/patients/${id}`).then(r => r.json()).then(setPatient)
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetPwLoading(true)
+    setResetPwMsg(null)
+    const res = await fetch(`/api/admin/patients/${id}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPw }),
+    })
+    setResetPwLoading(false)
+    if (res.ok) {
+      setResetPwMsg({ text: '비밀번호가 변경됐습니다.', ok: true })
+      setNewPw('')
+      setTimeout(() => { setResetPwMsg(null); setShowResetPw(false) }, 2000)
+    } else {
+      const data = await res.json()
+      setResetPwMsg({ text: data.error ?? '변경 실패', ok: false })
+    }
+  }
+
+  const handleDeletePatient = async () => {
+    if (!patient) return
+    if (!confirm(`"${patient.name}" 환자를 삭제하시겠습니까?\n수면 일지, 처방 내역 등 모든 데이터가 삭제됩니다.`)) return
+    setDeleting(true)
+    const res = await fetch(`/api/admin/patients/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      router.replace('/admin/patients')
+    } else {
+      setDeleting(false)
+      alert('삭제에 실패했습니다.')
+    }
+  }
 
   const handleAddPrescription = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -217,6 +259,12 @@ export default function PatientDetailPage() {
       <div className="flex items-center gap-4">
         <button onClick={() => router.back()} className="text-text-muted hover:text-text-primary text-sm">← 목록</button>
         <h1 className="text-2xl font-bold text-text-primary flex-1">{patient.name}</h1>
+        <button
+          onClick={() => { setShowResetPw(!showResetPw); setResetPwMsg(null) }}
+          className="px-3 py-1.5 border border-bg-tertiary rounded-[--radius-sm] text-sm text-text-secondary hover:bg-bg-secondary transition-colors"
+        >
+          비밀번호 초기화
+        </button>
         <Link
           href={`/admin/patients/${id}/edit`}
           className="px-3 py-1.5 border border-bg-tertiary rounded-[--radius-sm] text-sm text-text-secondary hover:bg-bg-secondary transition-colors"
@@ -224,6 +272,36 @@ export default function PatientDetailPage() {
           정보 수정
         </Link>
       </div>
+
+      {/* 비밀번호 초기화 폼 */}
+      {showResetPw && (
+        <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5">
+          <h2 className="text-base font-semibold text-text-primary mb-3">비밀번호 초기화</h2>
+          <form onSubmit={handleResetPassword} className="flex gap-2">
+            <input
+              type="password"
+              value={newPw}
+              onChange={e => setNewPw(e.target.value)}
+              placeholder="새 비밀번호 (6자 이상)"
+              minLength={6}
+              required
+              className={`${inputCls} flex-1`}
+            />
+            <button
+              type="submit"
+              disabled={resetPwLoading}
+              className="px-4 py-2 bg-brand-500 text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 transition-colors shrink-0"
+            >
+              {resetPwLoading ? '처리 중...' : '변경'}
+            </button>
+          </form>
+          {resetPwMsg && (
+            <p className={`text-sm mt-2 ${resetPwMsg.ok ? 'text-success' : 'text-danger'}`}>
+              {resetPwMsg.text}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 기본 정보 */}
       <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5">
@@ -628,6 +706,21 @@ export default function PatientDetailPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* 환자 삭제 */}
+      <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-5 border border-danger/20">
+        <h2 className="text-base font-semibold text-danger mb-2">환자 삭제</h2>
+        <p className="text-sm text-text-muted mb-4">
+          삭제 시 수면 일지, 처방 내역, 검사 결과, 문의 등 모든 데이터가 영구 삭제됩니다.
+        </p>
+        <button
+          onClick={handleDeletePatient}
+          disabled={deleting}
+          className="px-4 py-2 bg-danger text-white rounded-[--radius-sm] text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+        >
+          {deleting ? '삭제 중...' : `"${patient.name}" 환자 삭제`}
+        </button>
       </div>
     </div>
   )
