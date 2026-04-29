@@ -31,6 +31,26 @@ const MED_TIMINGS = [
   { key: 'bedtime', label: '취침전' },
 ] as const
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') return null
+  const reg = await navigator.serviceWorker.ready
+  const existing = await reg.pushManager.getSubscription()
+  if (existing) return existing
+  return reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+  })
+}
+
 export default function HomePage() {
   const router = useRouter()
   const [summary, setSummary] = useState<HomeSummary | null>(null)
@@ -44,6 +64,13 @@ export default function HomePage() {
   }, [router])
 
   useEffect(() => { fetchSummary() }, [fetchSummary])
+
+  // 서비스 워커 등록
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+  }, [])
 
   async function toggleMed(medType: 'herbal' | 'western', timing: string, current: boolean) {
     await fetch('/api/medication/check', {
@@ -60,6 +87,41 @@ export default function HomePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: !value }),
     })
+    fetchSummary()
+  }
+
+  async function togglePush(current: boolean) {
+    if (!current) {
+      // 활성화: 브라우저 권한 요청 → 구독 → 서버 저장
+      const sub = await subscribeToPush()
+      if (!sub) {
+        alert('알림 권한이 거부됐거나 지원되지 않는 브라우저입니다.')
+        return
+      }
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON()),
+      })
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ push_enabled: true }),
+      })
+    } else {
+      // 비활성화: 구독 해제 → 서버에서 삭제
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        await sub?.unsubscribe()
+      }
+      await fetch('/api/push/subscribe', { method: 'DELETE' })
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ push_enabled: false }),
+      })
+    }
     fetchSummary()
   }
 
@@ -189,11 +251,20 @@ export default function HomePage() {
       <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
         <h2 className="text-base font-semibold text-[#1A202C] mb-3">알림 설정</h2>
         <div className="flex flex-col gap-3">
-          <ToggleRow label="수면 일지 리마인드" value={d.settings.diary_remind} onToggle={() => toggleSetting('diary_remind', d.settings.diary_remind)} />
-          {d.hasPrescription && (
-            <ToggleRow label="복약 알림" value={d.settings.med_alarm} onToggle={() => toggleSetting('med_alarm', d.settings.med_alarm)} />
+          <ToggleRow
+            label="푸시 알림"
+            value={d.settings.push_enabled}
+            onToggle={() => togglePush(d.settings.push_enabled)}
+          />
+          {d.settings.push_enabled && (
+            <div className="pl-6 flex flex-col gap-3 border-l-2 border-[#EBF4FF]">
+              <ToggleRow label="수면 일지 리마인드" value={d.settings.diary_remind} onToggle={() => toggleSetting('diary_remind', d.settings.diary_remind)} />
+              {d.hasPrescription && (
+                <ToggleRow label="복약 알림" value={d.settings.med_alarm} onToggle={() => toggleSetting('med_alarm', d.settings.med_alarm)} />
+              )}
+              <ToggleRow label="Q&A 답변 알림" value={d.settings.qna_alarm} onToggle={() => toggleSetting('qna_alarm', d.settings.qna_alarm)} />
+            </div>
           )}
-          <ToggleRow label="Q&A 답변 알림" value={d.settings.qna_alarm} onToggle={() => toggleSetting('qna_alarm', d.settings.qna_alarm)} />
         </div>
       </div>
     </div>
