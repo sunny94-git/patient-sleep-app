@@ -265,6 +265,13 @@ export default function PatientDetailPage() {
         >
           비밀번호 초기화
         </button>
+        <a
+          href={`/api/admin/patients/${id}/export`}
+          download
+          className="px-3 py-1.5 border border-bg-tertiary rounded-[--radius-sm] text-sm text-text-secondary hover:bg-bg-secondary transition-colors"
+        >
+          CSV 내보내기
+        </a>
         <Link
           href={`/admin/patients/${id}/edit`}
           className="px-3 py-1.5 border border-bg-tertiary rounded-[--radius-sm] text-sm text-text-secondary hover:bg-bg-secondary transition-colors"
