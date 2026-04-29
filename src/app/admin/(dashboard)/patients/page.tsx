@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 
 interface Patient {
@@ -12,26 +12,54 @@ interface Patient {
   created_at: string
 }
 
+interface PatientsResponse {
+  data: Patient[]
+  total: number
+  page: number
+  totalPages: number
+  limit: number
+}
+
 function formatDate(str: string | null) {
   if (!str) return '-'
   return str.slice(0, 10).replace(/-/g, '.')
 }
 
+const LIMIT = 20
+
 export default function PatientsPage() {
-  const [patients, setPatients] = useState<Patient[]>([])
+  const [res, setRes] = useState<PatientsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [inputValue, setInputValue] = useState('')
 
-  useEffect(() => {
-    fetch('/api/admin/patients')
+  const fetchPatients = useCallback((p: number, q: string) => {
+    setLoading(true)
+    const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) })
+    if (q) params.set('search', q)
+    fetch(`/api/admin/patients?${params}`)
       .then(r => r.json())
-      .then(d => { setPatients(d); setLoading(false) })
+      .then(d => { setRes(d); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 
-  const filtered = patients.filter(p =>
-    p.name.includes(search) || p.registration_number.includes(search)
-  )
+  // 검색어 디바운스
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(inputValue)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [inputValue])
+
+  useEffect(() => {
+    fetchPatients(page, search)
+  }, [page, search, fetchPatients])
+
+  const patients = res?.data ?? []
+  const total = res?.total ?? 0
+  const totalPages = res?.totalPages ?? 1
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -49,8 +77,8 @@ export default function PatientsPage() {
       <div className="mb-4">
         <input
           type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
           placeholder="이름 또는 등록번호 검색"
           className="w-full max-w-sm px-3 py-2 rounded-[--radius-sm] border border-bg-tertiary bg-bg-primary text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-brand-400 text-sm"
         />
@@ -60,7 +88,7 @@ export default function PatientsPage() {
         <div className="flex justify-center py-20">
           <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : patients.length === 0 ? (
         <div className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-12 text-center">
           <p className="text-4xl mb-3">👥</p>
           <p className="text-text-muted">{search ? '검색 결과가 없습니다.' : '등록된 환자가 없습니다.'}</p>
@@ -78,7 +106,7 @@ export default function PatientsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-bg-tertiary">
-              {filtered.map(p => (
+              {patients.map(p => (
                 <tr key={p.id} className="hover:bg-bg-secondary transition-colors">
                   <td className="px-4 py-3">
                     <Link href={`/admin/patients/${p.id}`} className="font-medium text-brand-600 hover:underline">
@@ -93,11 +121,62 @@ export default function PatientsPage() {
               ))}
             </tbody>
           </table>
-          <div className="px-4 py-2 bg-bg-secondary border-t border-bg-tertiary text-xs text-text-muted">
-            총 {filtered.length}명
+
+          {/* 하단 - 총 인원 + 페이지네이션 */}
+          <div className="px-4 py-3 bg-bg-secondary border-t border-bg-tertiary flex items-center justify-between">
+            <span className="text-xs text-text-muted">총 {total}명</span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <PageBtn onClick={() => setPage(1)} disabled={page === 1}>«</PageBtn>
+                <PageBtn onClick={() => setPage(p => p - 1)} disabled={page === 1}>‹</PageBtn>
+                {pageRange(page, totalPages).map(n =>
+                  n === '...' ? (
+                    <span key={n + Math.random()} className="px-2 text-text-muted text-xs">…</span>
+                  ) : (
+                    <PageBtn key={n} onClick={() => setPage(Number(n))} active={page === Number(n)}>
+                      {n}
+                    </PageBtn>
+                  )
+                )}
+                <PageBtn onClick={() => setPage(p => p + 1)} disabled={page === totalPages}>›</PageBtn>
+                <PageBtn onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</PageBtn>
+              </div>
+            )}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function PageBtn({ children, onClick, disabled, active }: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  active?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`min-w-[28px] h-7 px-1.5 rounded text-xs font-medium transition-colors ${
+        active
+          ? 'bg-brand-500 text-white'
+          : 'text-text-secondary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-default'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function pageRange(current: number, total: number): (number | string)[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | string)[] = []
+  pages.push(1)
+  if (current > 3) pages.push('...')
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
+  if (current < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
 }
