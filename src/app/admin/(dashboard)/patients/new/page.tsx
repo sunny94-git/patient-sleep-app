@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function NewPatientPage() {
@@ -14,11 +14,26 @@ export default function NewPatientPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [regNumStatus, setRegNumStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
 
+  // 등록번호 중복 확인 (디바운스)
+  useEffect(() => {
+    const num = form.registration_number.trim()
+    if (!num) { setRegNumStatus('idle'); return }
+    setRegNumStatus('checking')
+    const timer = setTimeout(async () => {
+      const res = await fetch(`/api/admin/patients/check?registration_number=${encodeURIComponent(num)}`)
+      const data = await res.json()
+      setRegNumStatus(data.available ? 'available' : 'taken')
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [form.registration_number])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (regNumStatus === 'taken') { setError('이미 사용 중인 등록번호입니다.'); return }
     setError('')
     setSubmitting(true)
 
@@ -40,6 +55,13 @@ export default function NewPatientPage() {
     router.push(`/admin/patients/${patient.id}`)
   }
 
+  const regNumHint = {
+    idle:      { text: '로그인 ID로 사용됩니다.', color: 'text-text-muted' },
+    checking:  { text: '확인 중...', color: 'text-text-muted' },
+    available: { text: '✓ 사용 가능한 등록번호입니다.', color: 'text-success' },
+    taken:     { text: '✗ 이미 사용 중인 등록번호입니다.', color: 'text-danger' },
+  }[regNumStatus]
+
   return (
     <div className="p-6 max-w-xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -50,7 +72,7 @@ export default function NewPatientPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-bg-primary rounded-[--radius-md] shadow-[--shadow-card] p-6 space-y-5">
-        <Field label="이름 *" required>
+        <Field label="이름 *">
           <input
             type="text"
             value={form.name}
@@ -61,18 +83,18 @@ export default function NewPatientPage() {
           />
         </Field>
 
-        <Field label="등록번호 *" required hint="로그인 ID로 사용됩니다.">
+        <Field label="등록번호 *" hint={regNumHint.text} hintColor={regNumHint.color}>
           <input
             type="text"
             value={form.registration_number}
             onChange={e => set('registration_number', e.target.value)}
             required
             placeholder="예: 2024001"
-            className={inputCls}
+            className={`${inputCls} ${regNumStatus === 'taken' ? 'border-danger focus:border-danger' : regNumStatus === 'available' ? 'border-success focus:border-success' : ''}`}
           />
         </Field>
 
-        <Field label="초기 비밀번호 *" required hint="환자가 처음 로그인할 때 사용하는 비밀번호입니다.">
+        <Field label="초기 비밀번호 *" hint="환자가 처음 로그인할 때 사용하는 비밀번호입니다.">
           <input
             type="text"
             value={form.password}
@@ -115,7 +137,7 @@ export default function NewPatientPage() {
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || regNumStatus === 'taken' || regNumStatus === 'checking'}
             className="flex-1 py-2.5 rounded-[--radius-sm] bg-brand-500 text-white text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
           >
             {submitting ? '등록 중...' : '환자 등록'}
@@ -126,21 +148,16 @@ export default function NewPatientPage() {
   )
 }
 
-const inputCls = 'w-full px-3 py-2 rounded-[--radius-sm] border border-bg-tertiary bg-bg-secondary text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-brand-400 text-sm'
+const inputCls = 'w-full px-3 py-2 rounded-[--radius-sm] border border-bg-tertiary bg-bg-secondary text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-brand-400 text-sm transition-colors'
 
-function Field({ label, children, required, hint }: {
-  label: string
-  children: React.ReactNode
-  required?: boolean
-  hint?: string
+function Field({ label, children, hint, hintColor = 'text-text-muted' }: {
+  label: string; children: React.ReactNode; hint?: string; hintColor?: string
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-text-secondary mb-1.5">
-        {label}
-      </label>
+      <label className="block text-sm font-medium text-text-secondary mb-1.5">{label}</label>
       {children}
-      {hint && <p className="text-xs text-text-muted mt-1">{hint}</p>}
+      {hint && <p className={`text-xs mt-1 ${hintColor}`}>{hint}</p>}
     </div>
   )
 }

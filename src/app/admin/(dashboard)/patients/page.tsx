@@ -10,6 +10,15 @@ interface Patient {
   birth_date: string | null
   phone: string | null
   created_at: string
+  last_diary_date: string | null
+}
+
+function DiaryBadge({ lastDate }: { lastDate: string | null }) {
+  if (!lastDate) return <span className="text-xs px-1.5 py-0.5 rounded-full bg-danger/10 text-danger font-medium">미작성</span>
+  const days = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000)
+  if (days <= 7)  return <span className="text-xs px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">{days}일 전</span>
+  if (days <= 14) return <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning font-medium">{days}일 전</span>
+  return <span className="text-xs px-1.5 py-0.5 rounded-full bg-danger/10 text-danger font-medium">{days}일 전</span>
 }
 
 interface PatientsResponse {
@@ -102,7 +111,7 @@ export default function PatientsPage() {
                 <th className="text-left px-4 py-3 font-semibold text-text-secondary">등록번호</th>
                 <th className="text-left px-4 py-3 font-semibold text-text-secondary">생년월일</th>
                 <th className="text-left px-4 py-3 font-semibold text-text-secondary">연락처</th>
-                <th className="text-left px-4 py-3 font-semibold text-text-secondary">등록일</th>
+                <th className="text-left px-4 py-3 font-semibold text-text-secondary">최근 일지</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bg-tertiary">
@@ -116,7 +125,7 @@ export default function PatientsPage() {
                   <td className="px-4 py-3 text-text-secondary">{p.registration_number}</td>
                   <td className="px-4 py-3 text-text-secondary">{formatDate(p.birth_date)}</td>
                   <td className="px-4 py-3 text-text-secondary">{p.phone ?? '-'}</td>
-                  <td className="px-4 py-3 text-text-muted">{formatDate(p.created_at)}</td>
+                  <td className="px-4 py-3"><DiaryBadge lastDate={p.last_diary_date} /></td>
                 </tr>
               ))}
             </tbody>

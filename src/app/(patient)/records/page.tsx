@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import { getIsiLevel, getSleepEfficiencyLevel } from '@/lib/utils'
 
-type SubTab = '수면' | '효율' | '검사' | 'ISI'
+type SubTab = '수면' | '효율' | '검사' | 'ISI' | '복약'
 type ExamType = 'hrv' | 'inbody' | 'qeeg'
 
 const CHART_THEME = {
@@ -23,7 +23,7 @@ function formatDate(dateStr: string) {
 /* ── 메인 ──────────────────────────────────────── */
 export default function RecordsPage() {
   const [activeTab, setActiveTab] = useState<SubTab>('수면')
-  const tabs: SubTab[] = ['수면', '효율', '검사', 'ISI']
+  const tabs: SubTab[] = ['수면', '효율', '검사', 'ISI', '복약']
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -49,6 +49,7 @@ export default function RecordsPage() {
         {activeTab === '효율'  && <EfficiencyTab />}
         {activeTab === '검사'  && <ExamTab />}
         {activeTab === 'ISI'  && <IsiTab />}
+        {activeTab === '복약'  && <MedTab />}
       </div>
     </div>
   )
@@ -294,6 +295,128 @@ function IsiTab() {
           </ResponsiveContainer>
         ) : <EmptyState text="자가진단을 제출하면 추이 그래프가 표시됩니다." />}
       </ChartCard>
+    </div>
+  )
+}
+
+/* ── 복약 탭 ────────────────────────────────────── */
+interface MedRecord {
+  diary_date: string
+  herbal_morning: boolean
+  herbal_lunch: boolean
+  herbal_evening: boolean
+  herbal_bedtime: boolean
+  western_morning: boolean
+  western_lunch: boolean
+  western_evening: boolean
+  western_bedtime: boolean
+}
+
+const MED_TIMINGS = [
+  { key: 'morning', label: '아침' },
+  { key: 'lunch',   label: '점심' },
+  { key: 'evening', label: '저녁' },
+  { key: 'bedtime', label: '취침' },
+] as const
+
+const HERBAL_KEYS  = { morning: 'herbal_morning',  lunch: 'herbal_lunch',  evening: 'herbal_evening',  bedtime: 'herbal_bedtime'  } as const
+const WESTERN_KEYS = { morning: 'western_morning', lunch: 'western_lunch', evening: 'western_evening', bedtime: 'western_bedtime' } as const
+
+function calcAdherenceRate(records: MedRecord[], keys: typeof HERBAL_KEYS | typeof WESTERN_KEYS) {
+  let total = 0, taken = 0
+  for (const r of records) {
+    for (const t of MED_TIMINGS) {
+      total++
+      if (r[keys[t.key]]) taken++
+    }
+  }
+  return total === 0 ? null : Math.round((taken / total) * 100)
+}
+
+function MedDot({ taken }: { taken: boolean }) {
+  return (
+    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+      taken ? 'bg-[#DCFCE7] text-[#16A34A]' : 'bg-[#FEE2E2] text-[#EF4444]'
+    }`}>
+      {taken ? '✓' : '✗'}
+    </span>
+  )
+}
+
+function MedSection({ title, records, keys }: {
+  title: string
+  records: MedRecord[]
+  keys: typeof HERBAL_KEYS | typeof WESTERN_KEYS
+}) {
+  const rate = calcAdherenceRate(records, keys)
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold text-[#1A202C]">{title}</p>
+          <p className="text-xs text-[#718096]">최근 30일</p>
+        </div>
+        {rate !== null && (
+          <span className="text-sm font-bold px-2 py-0.5 rounded-full" style={{
+            backgroundColor: rate >= 80 ? '#DCFCE7' : rate >= 50 ? '#FEF9C3' : '#FEE2E2',
+            color:           rate >= 80 ? '#16A34A' : rate >= 50 ? '#CA8A04' : '#EF4444',
+          }}>
+            {rate}%
+          </span>
+        )}
+      </div>
+
+      {/* 헤더 행 */}
+      <div className="flex items-center gap-1 mb-1.5 px-0.5">
+        <span className="w-14 shrink-0" />
+        {MED_TIMINGS.map(t => (
+          <span key={t.key} className="flex-1 text-center text-[10px] text-[#A0AEC0]">{t.label}</span>
+        ))}
+      </div>
+
+      {/* 데이터 행 */}
+      <div className="flex flex-col gap-1">
+        {records.map(r => (
+          <div key={r.diary_date} className="flex items-center gap-1 px-0.5">
+            <span className="text-[11px] text-[#718096] w-14 shrink-0">
+              {new Date(r.diary_date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
+            </span>
+            {MED_TIMINGS.map(t => (
+              <div key={t.key} className="flex-1 flex justify-center">
+                <MedDot taken={r[keys[t.key]]} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MedTab() {
+  const [data, setData] = useState<MedRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/records/medication?days=30')
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false) })
+  }, [])
+
+  if (loading) return <ChartSkeleton />
+  if (data.length === 0) return <EmptyCard text="수면 일지를 작성하면 복약 이력이 표시됩니다." />
+
+  const hasHerbal  = data.some(r => r.herbal_morning  || r.herbal_lunch  || r.herbal_evening  || r.herbal_bedtime)
+  const hasWestern = data.some(r => r.western_morning || r.western_lunch || r.western_evening || r.western_bedtime)
+
+  if (!hasHerbal && !hasWestern) {
+    return <EmptyCard text="처방받은 약이 없거나 복약 기록이 없습니다." />
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {hasHerbal  && <MedSection title="한약 복약 이력" records={data} keys={HERBAL_KEYS}  />}
+      {hasWestern && <MedSection title="양약 복약 이력" records={data} keys={WESTERN_KEYS} />}
     </div>
   )
 }

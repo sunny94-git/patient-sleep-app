@@ -26,8 +26,24 @@ export async function GET(request: Request) {
   const { data, count } = await query
   const total = count ?? 0
 
+  // 각 환자의 최근 일지 날짜 조회
+  const patientIds = (data ?? []).map(p => p.id)
+  let lastDiaryMap: Record<string, string> = {}
+  if (patientIds.length > 0) {
+    const { data: diaries } = await supabase
+      .from('sleep_diary')
+      .select('patient_id, diary_date')
+      .in('patient_id', patientIds)
+      .order('diary_date', { ascending: false })
+    for (const d of diaries ?? []) {
+      if (!lastDiaryMap[d.patient_id]) lastDiaryMap[d.patient_id] = d.diary_date
+    }
+  }
+
+  const enriched = (data ?? []).map(p => ({ ...p, last_diary_date: lastDiaryMap[p.id] ?? null }))
+
   return NextResponse.json({
-    data: data ?? [],
+    data: enriched,
     total,
     page,
     totalPages: Math.ceil(total / limit),
