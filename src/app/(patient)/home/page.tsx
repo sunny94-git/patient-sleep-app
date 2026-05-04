@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Moon, CheckCircle2, AlertCircle, Bell, BellOff, ChevronRight } from 'lucide-react'
+import { Moon, CheckCircle2, AlertCircle, Bell, BellOff, ChevronRight, LogOut } from 'lucide-react'
 import { calcSleepEfficiency, getSleepEfficiencyLevel } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 interface HomeSummary {
   patientName: string
@@ -88,6 +89,12 @@ export default function HomePage() {
       body: JSON.stringify({ [key]: !value }),
     })
     fetchSummary()
+  }
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.replace('/login')
   }
 
   async function togglePush(current: boolean) {
@@ -267,6 +274,15 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {/* 로그아웃 */}
+      <button
+        onClick={handleLogout}
+        className="w-full flex items-center justify-center gap-2 py-3 text-[#EF4444] text-sm font-medium rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:bg-red-50 transition-colors"
+      >
+        <LogOut size={16} />
+        로그아웃
+      </button>
     </div>
   )
 }

@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Lock, LogOut, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { Lock, Eye, EyeOff } from 'lucide-react'
 
 export default function SettingsPage() {
-  const router = useRouter()
   const supabase = createClient()
 
   const [currentPw, setCurrentPw] = useState('')
@@ -66,11 +64,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.replace('/login')
-  }
-
   return (
     <div className="min-h-screen bg-[#F5F7FA] px-4 py-6">
       <h1 className="text-xl font-bold text-[#1A202C] mb-6">설정</h1>
@@ -114,20 +107,6 @@ export default function SettingsPage() {
             {loading ? '변경 중...' : '비밀번호 변경'}
           </button>
         </form>
-      </section>
-
-      {/* 로그아웃 */}
-      <section className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-between px-5 py-4 text-[#EF4444] hover:bg-red-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <LogOut size={18} />
-            <span className="text-sm font-medium">로그아웃</span>
-          </div>
-          <ChevronRight size={16} className="text-[#CBD5E0]" />
-        </button>
       </section>
 
       {/* 토스트 */}

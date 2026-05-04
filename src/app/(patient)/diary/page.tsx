@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 /* ── 타입 ─────────────────────────────────────────── */
@@ -44,6 +44,23 @@ const INITIAL: DiaryForm = {
 
 const STEPS = ['기본 정보', '수면 질 평가', '추가 기록', '복약 체크']
 
+const SCORE_COLORS: Record<number, string> = {
+  1: '#EF4444',
+  2: '#F97316',
+  3: '#EAB308',
+  4: '#84CC16',
+  5: '#22C55E',
+}
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0]
+}
+
+function formatDateKo(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+}
+
 /* ── 공통 하위 컴포넌트 ──────────────────────────── */
 function SelectGroup({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
   return (
@@ -58,15 +75,37 @@ function SelectGroup({ options, value, onChange }: { options: string[]; value: s
   )
 }
 
-function Slider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function ColorSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const color = SCORE_COLORS[value]
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-[#A0AEC0] w-4">1</span>
-      <input type="range" min={1} max={5} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        className="flex-1 accent-[#4A90D9]" />
-      <span className="text-xs text-[#A0AEC0] w-4">5</span>
-      <span className="text-sm font-semibold text-[#4A90D9] w-4">{value}</span>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <input
+          type="range" min={1} max={5} value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          className="flex-1 h-2 cursor-pointer"
+          style={{ accentColor: color }}
+        />
+        <span
+          className="w-9 h-9 rounded-full flex items-center justify-center text-base font-bold text-white shrink-0 shadow-sm transition-colors"
+          style={{ backgroundColor: color }}
+        >
+          {value}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        {[1, 2, 3, 4, 5].map(n => (
+          <button key={n} type="button" onClick={() => onChange(n)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
+            style={{
+              backgroundColor: n === value ? SCORE_COLORS[n] + '20' : 'transparent',
+              color: n === value ? SCORE_COLORS[n] : '#CBD5E0',
+              border: `2px solid ${n === value ? SCORE_COLORS[n] : '#E2E8F0'}`,
+            }}>
+            {n}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -92,13 +131,20 @@ export default function DiaryPage() {
   const [hasPrescription, setHasPrescription] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [isEdit, setIsEdit] = useState(false)
 
   useEffect(() => {
-    fetch('/api/diary/today').then(r => r.json()).then(d => {
-      if (d.diary) setForm(f => ({ ...f, ...d.diary }))
+    setForm(INITIAL)
+    setIsEdit(false)
+    fetch(`/api/diary/today?date=${selectedDate}`).then(r => r.json()).then(d => {
+      if (d.diary) {
+        setForm(f => ({ ...f, ...d.diary }))
+        setIsEdit(true)
+      }
       setHasPrescription(d.hasPrescription)
     })
-  }, [])
+  }, [selectedDate])
 
   const set = (key: keyof DiaryForm, val: unknown) =>
     setForm(f => ({ ...f, [key]: val }))
@@ -110,6 +156,7 @@ export default function DiaryPage() {
     setSubmitting(true)
     const payload = {
       ...form,
+      diary_date: selectedDate,
       nap_duration_min: form.nap_duration_min ? Number(form.nap_duration_min) : null,
     }
     await fetch('/api/diary', {
@@ -141,11 +188,35 @@ export default function DiaryPage() {
         <button onClick={() => step === 0 ? router.back() : setStep(s => s - 1)} className="p-1 -ml-1">
           <ChevronLeft size={22} className="text-[#4A5568]" />
         </button>
-        <div className="flex-1">
-          <p className="text-xs text-[#718096]">수면 일지 작성</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-[#718096]">{isEdit ? '수면 일지 수정' : '수면 일지 작성'}</p>
           <h1 className="text-base font-semibold text-[#1A202C]">{stepLabels[step]}</h1>
         </div>
-        <span className="text-sm text-[#A0AEC0]">{step + 1} / {totalSteps}</span>
+        <span className="text-sm text-[#A0AEC0] shrink-0">{step + 1} / {totalSteps}</span>
+      </div>
+
+      {/* 날짜 선택 */}
+      <div className="bg-white border-b border-[#E2E8F0] px-5 py-2.5">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <CalendarDays size={16} className="text-[#4A90D9] shrink-0" />
+          <span className="text-sm text-[#4A5568] font-medium shrink-0">날짜</span>
+          <span className="text-sm text-[#1A202C] font-semibold">{formatDateKo(selectedDate)}</span>
+          {isEdit && (
+            <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium shrink-0">수정 중</span>
+          )}
+          <input
+            type="date"
+            value={selectedDate}
+            max={todayStr()}
+            onChange={e => { if (e.target.value) { setSelectedDate(e.target.value); setStep(0) } }}
+            className="sr-only"
+            id="diary-date-picker"
+          />
+        </label>
+        <label htmlFor="diary-date-picker"
+          className="mt-1 inline-flex items-center gap-1 text-xs text-[#4A90D9] cursor-pointer hover:underline">
+          날짜 변경
+        </label>
       </div>
 
       {/* 진행 바 */}
@@ -172,7 +243,7 @@ export default function DiaryPage() {
           </Button>
         ) : (
           <Button size="lg" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? '저장 중...' : '저장 완료'}
+            {submitting ? '저장 중...' : (isEdit ? '수정 완료' : '저장 완료')}
           </Button>
         )}
       </div>
@@ -233,14 +304,14 @@ function Step2({ form, set }: { form: DiaryForm; set: (k: keyof DiaryForm, v: un
         <div className="flex justify-between text-xs text-[#A0AEC0] mb-1">
           <span>매우 나쁨</span><span>매우 좋음</span>
         </div>
-        <Slider value={form.sleep_quality} onChange={v => set('sleep_quality', v)} />
+        <ColorSlider value={form.sleep_quality} onChange={v => set('sleep_quality', v)} />
       </Section>
 
       <Section title="기상 시 피로도">
         <div className="flex justify-between text-xs text-[#A0AEC0] mb-1">
           <span>매우 피곤함</span><span>매우 개운함</span>
         </div>
-        <Slider value={form.morning_fatigue} onChange={v => set('morning_fatigue', v)} />
+        <ColorSlider value={form.morning_fatigue} onChange={v => set('morning_fatigue', v)} />
       </Section>
 
       <Section title="낮 동안 졸림">
@@ -303,7 +374,7 @@ function Step3({ form, set }: { form: DiaryForm; set: (k: keyof DiaryForm, v: un
         <div className="flex justify-between text-xs text-[#A0AEC0] mb-1">
           <span>매우 나쁨</span><span>매우 좋음</span>
         </div>
-        <Slider value={form.condition} onChange={v => set('condition', v)} />
+        <ColorSlider value={form.condition} onChange={v => set('condition', v)} />
       </Section>
 
       <Section title="특이사항 메모 (선택)">
