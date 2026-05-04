@@ -139,7 +139,17 @@ export default function DiaryPage() {
     setIsEdit(false)
     fetch(`/api/diary/today?date=${selectedDate}`).then(r => r.json()).then(d => {
       if (d.diary) {
-        setForm(f => ({ ...f, ...d.diary }))
+        // null/undefined 값 제외하고 타입 안전하게 병합
+        const safe: Partial<DiaryForm> = {}
+        for (const [k, v] of Object.entries(d.diary)) {
+          if (v === null || v === undefined || !(k in INITIAL)) continue
+          if (k === 'nap_duration_min') {
+            safe.nap_duration_min = String(v)
+          } else {
+            (safe as Record<string, unknown>)[k] = v
+          }
+        }
+        setForm(f => ({ ...f, ...safe }))
         setIsEdit(true)
       }
       setHasPrescription(d.hasPrescription)
@@ -196,27 +206,19 @@ export default function DiaryPage() {
       </div>
 
       {/* 날짜 선택 */}
-      <div className="bg-white border-b border-[#E2E8F0] px-5 py-2.5">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <CalendarDays size={16} className="text-[#4A90D9] shrink-0" />
-          <span className="text-sm text-[#4A5568] font-medium shrink-0">날짜</span>
-          <span className="text-sm text-[#1A202C] font-semibold">{formatDateKo(selectedDate)}</span>
-          {isEdit && (
-            <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium shrink-0">수정 중</span>
-          )}
-          <input
-            type="date"
-            value={selectedDate}
-            max={todayStr()}
-            onChange={e => { if (e.target.value) { setSelectedDate(e.target.value); setStep(0) } }}
-            className="sr-only"
-            id="diary-date-picker"
-          />
-        </label>
-        <label htmlFor="diary-date-picker"
-          className="mt-1 inline-flex items-center gap-1 text-xs text-[#4A90D9] cursor-pointer hover:underline">
-          날짜 변경
-        </label>
+      <div className="bg-white border-b border-[#E2E8F0] px-5 py-2.5 flex items-center gap-2">
+        <CalendarDays size={16} className="text-[#4A90D9] shrink-0" />
+        <span className="text-sm text-[#4A5568] font-medium">날짜</span>
+        {isEdit && (
+          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">수정 중</span>
+        )}
+        <input
+          type="date"
+          value={selectedDate}
+          max={todayStr()}
+          onChange={e => { if (e.target.value) { setSelectedDate(e.target.value); setStep(0) } }}
+          className="ml-auto text-sm font-semibold text-[#1A202C] bg-transparent border-none outline-none cursor-pointer"
+        />
       </div>
 
       {/* 진행 바 */}

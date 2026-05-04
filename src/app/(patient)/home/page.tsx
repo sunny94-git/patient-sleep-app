@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Moon, CheckCircle2, AlertCircle, Bell, BellOff, ChevronRight, LogOut } from 'lucide-react'
+import { Moon, CheckCircle2, PencilLine, AlertCircle, ChevronRight, LogOut } from 'lucide-react'
 import { calcSleepEfficiency, getSleepEfficiencyLevel } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,7 @@ interface HomeSummary {
   nextVisitDate: string | null
   todayDiary: {
     id: string
+    sleep_quality?: number | null
     herbal_morning?: boolean; herbal_lunch?: boolean
     herbal_evening?: boolean; herbal_bedtime?: boolean
     western_morning?: boolean; western_lunch?: boolean
@@ -22,7 +23,6 @@ interface HomeSummary {
     sleep_quality?: number; sleep_onset_latency?: string
     night_awakening_count?: string; total_sleep_min?: number
   } | null
-  settings: { push_enabled: boolean; diary_remind: boolean; med_alarm: boolean; qna_alarm: boolean }
 }
 
 const MED_TIMINGS = [
@@ -31,26 +31,6 @@ const MED_TIMINGS = [
   { key: 'evening', label: '저녁' },
   { key: 'bedtime', label: '취침전' },
 ] as const
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
-}
-
-async function subscribeToPush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return null
-  const reg = await navigator.serviceWorker.ready
-  const existing = await reg.pushManager.getSubscription()
-  if (existing) return existing
-  return reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
-  })
-}
 
 export default function HomePage() {
   const router = useRouter()
@@ -66,13 +46,6 @@ export default function HomePage() {
 
   useEffect(() => { fetchSummary() }, [fetchSummary])
 
-  // 서비스 워커 등록
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
-    }
-  }, [])
-
   async function toggleMed(medType: 'herbal' | 'western', timing: string, current: boolean) {
     await fetch('/api/medication/check', {
       method: 'PATCH',
@@ -82,54 +55,10 @@ export default function HomePage() {
     fetchSummary()
   }
 
-  async function toggleSetting(key: string, value: boolean) {
-    await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [key]: !value }),
-    })
-    fetchSummary()
-  }
-
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.replace('/login')
-  }
-
-  async function togglePush(current: boolean) {
-    if (!current) {
-      // 활성화: 브라우저 권한 요청 → 구독 → 서버 저장
-      const sub = await subscribeToPush()
-      if (!sub) {
-        alert('알림 권한이 거부됐거나 지원되지 않는 브라우저입니다.')
-        return
-      }
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub.toJSON()),
-      })
-      await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ push_enabled: true }),
-      })
-    } else {
-      // 비활성화: 구독 해제 → 서버에서 삭제
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.ready
-        const sub = await reg.pushManager.getSubscription()
-        await sub?.unsubscribe()
-      }
-      await fetch('/api/push/subscribe', { method: 'DELETE' })
-      await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ push_enabled: false }),
-      })
-    }
-    fetchSummary()
   }
 
   const greeting = () => {
@@ -142,7 +71,7 @@ export default function HomePage() {
   if (loading) return <HomeSkeleton />
 
   const d = summary!
-  const diaryDone = !!d.todayDiary?.id
+  const diaryDone = d.todayDiary?.sleep_quality != null
 
   // 어제 수면 효율 계산
   let efficiency: number | null = null
@@ -168,10 +97,10 @@ export default function HomePage() {
 
         {/* 수면 일지 */}
         <button
-          onClick={() => !diaryDone && router.push('/diary')}
+          onClick={() => router.push('/diary')}
           className={`w-full flex items-center justify-between p-3 rounded-xl mb-2 transition-colors ${
             diaryDone
-              ? 'bg-green-50 border border-green-200'
+              ? 'bg-green-50 border border-green-200 hover:bg-green-100'
               : 'bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-[#DBEAFE]'
           }`}
         >
@@ -183,7 +112,9 @@ export default function HomePage() {
               {diaryDone ? '수면 일지 작성 완료' : '수면 일지 작성하기'}
             </span>
           </div>
-          {!diaryDone && <ChevronRight size={16} className="text-[#4A90D9]" />}
+          {diaryDone
+            ? <PencilLine size={15} className="text-green-500" />
+            : <ChevronRight size={16} className="text-[#4A90D9]" />}
         </button>
 
         {/* 복약 체크 (처방 환자만) */}
@@ -254,27 +185,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 알림 설정 */}
-      <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h2 className="text-base font-semibold text-[#1A202C] mb-3">알림 설정</h2>
-        <div className="flex flex-col gap-3">
-          <ToggleRow
-            label="푸시 알림"
-            value={d.settings.push_enabled}
-            onToggle={() => togglePush(d.settings.push_enabled)}
-          />
-          {d.settings.push_enabled && (
-            <div className="pl-6 flex flex-col gap-3 border-l-2 border-[#EBF4FF]">
-              <ToggleRow label="수면 일지 리마인드" value={d.settings.diary_remind} onToggle={() => toggleSetting('diary_remind', d.settings.diary_remind)} />
-              {d.hasPrescription && (
-                <ToggleRow label="복약 알림" value={d.settings.med_alarm} onToggle={() => toggleSetting('med_alarm', d.settings.med_alarm)} />
-              )}
-              <ToggleRow label="Q&A 답변 알림" value={d.settings.qna_alarm} onToggle={() => toggleSetting('qna_alarm', d.settings.qna_alarm)} />
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* 로그아웃 */}
       <button
         onClick={handleLogout}
@@ -294,23 +204,6 @@ function SummaryRow({ label, value, valueColor }: { label: string; value: string
       <span className="text-sm font-medium" style={valueColor ? { color: valueColor } : { color: '#1A202C' }}>
         {value}
       </span>
-    </div>
-  )
-}
-
-function ToggleRow({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) {
-  return (
-    <div className="flex justify-between items-center">
-      <div className="flex items-center gap-2">
-        {value ? <Bell size={16} className="text-[#4A90D9]" /> : <BellOff size={16} className="text-[#A0AEC0]" />}
-        <span className="text-sm text-[#4A5568]">{label}</span>
-      </div>
-      <button
-        onClick={onToggle}
-        className={`relative w-11 h-6 rounded-full transition-colors ${value ? 'bg-[#4A90D9]' : 'bg-[#E2E8F0]'}`}
-      >
-        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
-      </button>
     </div>
   )
 }
