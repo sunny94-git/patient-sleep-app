@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 비로그인 → 로그인 페이지로
-  const publicPaths = ['/login', '/admin/login']
+  const publicPaths = ['/login']
   const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
   if (!user && !isPublic && !pathname.startsWith('/api')) {
