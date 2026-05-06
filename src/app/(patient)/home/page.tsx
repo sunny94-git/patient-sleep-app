@@ -117,33 +117,15 @@ export default function HomePage() {
             : <ChevronRight size={16} className="text-[#4A90D9]" />}
         </button>
 
-        {/* 복약 체크 */}
-        <div className="flex flex-col gap-2 mt-3">
-          {/* 한약: 처방 작성 시에만 표시 */}
-          {d.hasPrescription && (
-            <div>
-              <p className="text-xs font-medium text-[#718096] mb-1.5">💊 한약</p>
-              <div className="flex gap-2">
-                {MED_TIMINGS.map(({ key, label }) => {
-                  const checked = !!(d.todayDiary as Record<string, unknown> | null)?.[`herbal_${key}`]
-                  return (
-                    <button key={key} onClick={() => toggleMed('herbal', key, checked)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${checked ? 'bg-[#4A90D9] text-white' : 'bg-[#F1F5F9] text-[#718096] hover:bg-[#E2E8F0]'}`}>
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          {/* 양약: 항상 표시 */}
-          <div>
-            <p className="text-xs font-medium text-[#718096] mb-1.5">💊 양약</p>
+        {/* 한약 복약 체크: 처방 작성 시에만 표시 */}
+        {d.hasPrescription && (
+          <div className="mt-3">
+            <p className="text-xs font-medium text-[#718096] mb-1.5">💊 한약</p>
             <div className="flex gap-2">
               {MED_TIMINGS.map(({ key, label }) => {
-                const checked = !!(d.todayDiary as Record<string, unknown> | null)?.[`western_${key}`]
+                const checked = !!(d.todayDiary as Record<string, unknown> | null)?.[`herbal_${key}`]
                 return (
-                  <button key={key} onClick={() => toggleMed('western', key, checked)}
+                  <button key={key} onClick={() => toggleMed('herbal', key, checked)}
                     className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${checked ? 'bg-[#4A90D9] text-white' : 'bg-[#F1F5F9] text-[#718096] hover:bg-[#E2E8F0]'}`}>
                     {label}
                   </button>
@@ -151,7 +133,7 @@ export default function HomePage() {
               })}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 어제 수면 요약 */}

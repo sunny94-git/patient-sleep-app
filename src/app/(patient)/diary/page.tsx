@@ -159,8 +159,8 @@ export default function DiaryPage() {
   const set = (key: keyof DiaryForm, val: unknown) =>
     setForm(f => ({ ...f, [key]: val }))
 
-  const totalSteps = hasPrescription ? 4 : 3
-  const stepLabels = hasPrescription ? STEPS : STEPS.slice(0, 3)
+  const totalSteps = 4
+  const stepLabels = STEPS
 
   async function handleSubmit() {
     setSubmitting(true)
@@ -234,7 +234,7 @@ export default function DiaryPage() {
         {step === 0 && <Step1 form={form} set={set} />}
         {step === 1 && <Step2 form={form} set={set} />}
         {step === 2 && <Step3 form={form} set={set} />}
-        {step === 3 && hasPrescription && <Step4 form={form} set={set} />}
+        {step === 3 && <Step4 form={form} set={set} hasPrescription={hasPrescription} />}
       </div>
 
       {/* 하단 버튼 */}
@@ -397,27 +397,30 @@ const TIMINGS = [
   { key: 'bedtime' as const, label: '취침전' },
 ]
 
-function Step4({ form, set }: { form: DiaryForm; set: (k: keyof DiaryForm, v: unknown) => void }) {
+function Step4({ form, set, hasPrescription }: { form: DiaryForm; set: (k: keyof DiaryForm, v: unknown) => void; hasPrescription: boolean }) {
+  const MedRow = ({ type, title }: { type: 'herbal' | 'western'; title: string }) => (
+    <Section title={title}>
+      <div className="flex gap-2">
+        {TIMINGS.map(({ key, label }) => {
+          const field = `${type}_${key}` as keyof DiaryForm
+          const checked = form[field] as boolean
+          return (
+            <button key={key} type="button"
+              onClick={() => set(field, !checked)}
+              className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors flex flex-col items-center gap-1 ${checked ? 'bg-[#4A90D9] text-white' : 'bg-[#F1F5F9] text-[#718096]'}`}>
+              {checked ? <Check size={14} /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-[#A0AEC0]" />}
+              {label}
+            </button>
+          )
+        })}
+      </div>
+    </Section>
+  )
+
   return (
     <>
-      {(['herbal', 'western'] as const).map(type => (
-        <Section key={type} title={type === 'herbal' ? '💊 한약' : '💊 양약'}>
-          <div className="flex gap-2">
-            {TIMINGS.map(({ key, label }) => {
-              const field = `${type}_${key}` as keyof DiaryForm
-              const checked = form[field] as boolean
-              return (
-                <button key={key} type="button"
-                  onClick={() => set(field, !checked)}
-                  className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors flex flex-col items-center gap-1 ${checked ? 'bg-[#4A90D9] text-white' : 'bg-[#F1F5F9] text-[#718096]'}`}>
-                  {checked ? <Check size={14} /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-[#A0AEC0]" />}
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        </Section>
-      ))}
+      {hasPrescription && <MedRow type="herbal" title="💊 한약" />}
+      <MedRow type="western" title="💊 양약" />
       <p className="text-xs text-[#A0AEC0] text-center">복용하지 않은 항목은 선택하지 않아도 됩니다</p>
     </>
   )
