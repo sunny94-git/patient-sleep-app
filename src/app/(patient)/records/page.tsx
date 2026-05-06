@@ -20,6 +20,15 @@ function formatDate(dateStr: string) {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
+function fmtHours(h: number) {
+  const totalMin = Math.round(h * 60)
+  const hr = Math.floor(totalMin / 60)
+  const min = totalMin % 60
+  if (hr === 0) return `${min}분`
+  if (min === 0) return `${hr}시간`
+  return `${hr}시간 ${min}분`
+}
+
 /* ── 메인 ──────────────────────────────────────── */
 export default function RecordsPage() {
   const [activeTab, setActiveTab] = useState<SubTab>('수면')
@@ -85,7 +94,7 @@ function SleepTab() {
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: CHART_THEME.fontSize, fill: CHART_THEME.axis }} />
               <YAxis tick={{ fontSize: CHART_THEME.fontSize, fill: CHART_THEME.axis }} />
-              <Tooltip formatter={(v) => [`${v}h`, '수면 시간']} />
+              <Tooltip formatter={(v) => [fmtHours(v as number), '수면 시간']} />
               <Bar dataKey="총수면" fill="#4A90D9" radius={[4, 4, 0, 0]} maxBarSize={20} />
             </BarChart>
           </ResponsiveContainer>
@@ -99,7 +108,7 @@ function SleepTab() {
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: CHART_THEME.fontSize, fill: CHART_THEME.axis }} />
               <YAxis tick={{ fontSize: CHART_THEME.fontSize, fill: CHART_THEME.axis }} />
-              <Tooltip />
+              <Tooltip formatter={(v, name) => [fmtHours(v as number), name]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="깊은수면" stackId="s" fill="#2563EB" maxBarSize={20} />
               <Bar dataKey="얕은수면" stackId="s" fill="#60A5FA" maxBarSize={20} />
