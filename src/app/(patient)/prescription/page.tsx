@@ -58,11 +58,6 @@ export default function PrescriptionPage() {
                 <span className="text-white font-semibold">
                   {formatDate(latest.visit_date)} 방문
                 </span>
-                {latest.next_visit_date && (
-                  <span className="text-blue-100 text-sm">
-                    다음 방문: {formatDate(latest.next_visit_date)}
-                  </span>
-                )}
               </div>
               <div className="p-4 space-y-3">
                 {latest.prescription && (
@@ -103,11 +98,6 @@ export default function PrescriptionPage() {
                         <span className="font-medium text-text-primary">
                           {formatDate(item.visit_date)} 방문
                         </span>
-                        {item.next_visit_date && (
-                          <span className="ml-2 text-xs text-text-muted">
-                            다음: {formatDate(item.next_visit_date)}
-                          </span>
-                        )}
                       </div>
                       <span className="text-text-muted text-lg leading-none">
                         {expanded === item.id ? '−' : '+'}

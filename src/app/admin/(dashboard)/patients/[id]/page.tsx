@@ -319,11 +319,6 @@ export default function PatientDetailPage() {
           <Info label="연락처" value={patient.phone ?? '-'} />
           <Info label="등록일" value={formatDate(patient.created_at)} />
         </div>
-        {latestTreatment?.next_visit_date && (
-          <div className="mt-4 pt-4 border-t border-bg-tertiary">
-            <Info label="다음 방문 예정" value={formatDate(latestTreatment.next_visit_date)} />
-          </div>
-        )}
       </div>
 
       {/* 수면장애 진단 */}
@@ -575,15 +570,6 @@ export default function PatientDetailPage() {
                   className={inputCls}
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1">다음 방문일</label>
-                <input
-                  type="date"
-                  value={prescForm.next_visit_date}
-                  onChange={e => setPrescForm(p => ({ ...p, next_visit_date: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">처방</label>
@@ -634,15 +620,6 @@ export default function PatientDetailPage() {
                           className={inputCls}
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">다음 방문일</label>
-                        <input
-                          type="date"
-                          value={editPrescForm.next_visit_date}
-                          onChange={e => setEditPrescForm(f => ({ ...f, next_visit_date: e.target.value }))}
-                          className={inputCls}
-                        />
-                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-text-secondary mb-1">처방</label>
@@ -684,9 +661,6 @@ export default function PatientDetailPage() {
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="font-medium text-text-primary text-sm">{formatDate(t.visit_date)}</span>
                       {i === 0 && <span className="text-xs px-2 py-0.5 bg-brand-50 text-brand-700 rounded-full">최근</span>}
-                      {t.next_visit_date && (
-                        <span className="text-xs text-text-muted">다음: {formatDate(t.next_visit_date)}</span>
-                      )}
                       <div className="flex gap-1 ml-auto">
                         <button
                           onClick={() => startEditPresc(t)}

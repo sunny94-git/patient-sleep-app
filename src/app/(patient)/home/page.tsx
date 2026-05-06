@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Moon, CheckCircle2, PencilLine, AlertCircle, ChevronRight, LogOut } from 'lucide-react'
+import { Moon, CheckCircle2, PencilLine, ChevronRight, LogOut } from 'lucide-react'
 import { calcSleepEfficiency, getSleepEfficiencyLevel } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
 interface HomeSummary {
   patientName: string
   hasPrescription: boolean
-  nextVisitDate: string | null
+
   todayDiary: {
     id: string
     sleep_quality?: number | null
@@ -175,19 +175,6 @@ export default function HomePage() {
           <p className="text-sm text-[#A0AEC0]">어제 수면 일지가 없습니다.</p>
         )}
       </div>
-
-      {/* 다음 방문일 */}
-      {d.nextVisitDate && (
-        <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl p-4 flex items-center gap-3">
-          <AlertCircle size={20} className="text-[#4A90D9] shrink-0" />
-          <div>
-            <p className="text-xs text-[#4A90D9] font-medium">다음 방문 예정일</p>
-            <p className="text-sm font-semibold text-[#1A202C]">
-              {new Date(d.nextVisitDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* 로그아웃 */}
       <button
