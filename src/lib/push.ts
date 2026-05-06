@@ -1,7 +1,7 @@
 import webpush from 'web-push'
 
 webpush.setVapidDetails(
-  'mailto:admin@clinic.com',
+  'mailto:admin@patient.local',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 )

@@ -10,7 +10,7 @@
 - **프로덕션 URL**: https://patient-sleep-app.vercel.app
 - **배포 플랫폼**: Vercel (서울 리전 icn1)
 - **DB**: Supabase (프로젝트 ID: `aalzgqtydeilklzufxcn`)
-- **관리자 계정**: `admin@clinic.com` (Supabase Auth + user_roles 등록 완료)
+- **관리자 계정**: `admin@patient.local` (로그인 ID: `admin`, PW: `12345`) (Supabase Auth + user_roles 등록 완료)
 
 ---
 

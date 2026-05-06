@@ -473,7 +473,7 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력·수정·삭제하는 �
 - **비활동 로그아웃** (`src/components/InactivityGuard.tsx`): 15분 무조작 시 `signOut()` 후 로그인 페이지 이동. 환자 레이아웃(`/login`)·관리자 레이아웃(`/admin/login`) 양쪽에 적용. 감지 이벤트: `mousemove`, `keydown`, `mousedown`, `touchstart`, `scroll`
 - **Vercel 배포**: `https://patient-sleep-app.vercel.app`, 환경 변수 등록 완료
 - **Supabase Auth Redirect URL**: 프로덕션 URL 등록 완료
-- **관리자 계정**: `admin@clinic.com` Supabase Auth + `user_roles` 등록 완료
+- **관리자 계정**: `admin@patient.local` (로그인 ID: `admin`, PW: `12345`) Supabase Auth + `user_roles` 등록 완료
 - **PWA manifest**: `public/manifest.json` + `public/icons/` SVG 아이콘 2종
 - **Web Push**: `web-push` npm 패키지 + VAPID 키 + `public/sw.js` Service Worker + `src/lib/push.ts` 발송 유틸
 - **에러 페이지**: `src/app/not-found.tsx`, `src/app/error.tsx`, 라우트 그룹별 `error.tsx` 4종
@@ -486,7 +486,7 @@ HRV·InBody·QEEG 검사 결과를 JSON 형태로 입력·수정·삭제하는 �
 ### 5-1. 운영 준비
 
 #### 관리자 계정 ✅ 완료
-`admin@clinic.com` 계정이 Supabase Auth에 생성됐고 `user_roles`에 `role='admin'`으로 등록됨.
+`admin@patient.local` 계정이 Supabase Auth에 생성됐고 `user_roles`에 `role='admin'`으로 등록됨. (로그인 ID: `admin`, PW: `12345`)
 
 ---
 
@@ -1028,7 +1028,7 @@ auth.users (Supabase 관리)
 
 **관리자 로그인 흐름**
 ```
-1. 관리자가 실제 이메일 입력 (예: "admin@clinic.com")
+1. 관리자가 ID 입력 (예: "admin" → 내부적으로 "admin@patient.local"로 변환)
 2. supabase.auth.signInWithPassword({ email, password })
 3. user_roles.role === 'admin' 검증
 4. 실패 시 즉시 signOut() 처리
@@ -1456,7 +1456,7 @@ DB 테이블 (`sleep_disorders`):
 
 | 기능 | 확인 결과 |
 |------|-----------|
-| 관리자 로그인 (`admin@clinic.com`) | ✅ 정상 동작 |
+| 관리자 로그인 (ID: `admin`) | ✅ 정상 동작 |
 | 환자 등록 (관리자 대시보드) | ✅ 정상 동작 (user_roles 자동 삽입) |
 | 환자 로그인 | ✅ 정상 동작 |
 | 환자 홈 탭 (`/home`) | ✅ 정상 렌더링 |
@@ -1493,7 +1493,7 @@ Vercel 배포 후 실제 환자에게 서비스를 제공하기 전 완료해야
 
 | # | 항목 | 현재 상태 | 비고 |
 |---|------|-----------|------|
-| 1 | 관리자 계정 생성 | ✅ 완료 | `admin@clinic.com` (UUID: `54fb6cf1-10cc-4710-a4ac-c837f7c8aec6`), `user_roles` 삽입 완료 |
+| 1 | 관리자 계정 생성 | ✅ 완료 | `admin@patient.local` (UUID: `19543005-b36f-434c-bbf6-172965326e1f`), `user_roles` 삽입 완료 |
 | 2 | Vercel 환경 변수 등록 | ✅ 완료 | Production + Preview 범위 등록 완료 |
 | 3 | Supabase RLS 적용 | ✅ 완료 | `supabase_schema.sql` 실행, 9개 테이블 RLS 활성화 |
 | 4 | Supabase Auth Redirect URL | ✅ 완료 | `https://patient-sleep-app.vercel.app/**`, `https://*.vercel.app/**` 등록됨 |
