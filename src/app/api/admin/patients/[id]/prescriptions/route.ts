@@ -23,11 +23,11 @@ export async function POST(request: Request, { params }: Params) {
 
   const { id } = await params
   const body = await request.json()
-  const { visit_date, prescription, treatment_notes, next_visit_date } = body
+  const { visit_date, prescription, treatment_notes } = body
 
   const { data, error: dbErr } = await supabase
     .from('treatment_records')
-    .insert({ patient_id: id, visit_date, prescription, treatment_notes, next_visit_date, created_by: user?.id })
+    .insert({ patient_id: id, visit_date, prescription: prescription || null, treatment_notes: treatment_notes || null, created_by: user?.id })
     .select()
     .single()
 

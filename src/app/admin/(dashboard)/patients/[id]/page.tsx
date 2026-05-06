@@ -65,12 +65,12 @@ export default function PatientDetailPage() {
 
   // 처방 추가 상태
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false)
-  const [prescForm, setPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
+  const [prescForm, setPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '' })
   const [prescSubmitting, setPrescSubmitting] = useState(false)
 
   // 처방 수정·삭제 상태
   const [editingPresc, setEditingPresc] = useState<TreatmentRecord | null>(null)
-  const [editPrescForm, setEditPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
+  const [editPrescForm, setEditPrescForm] = useState({ visit_date: '', prescription: '', treatment_notes: '' })
   const [prescDeleting, setPrescDeleting] = useState<string | null>(null)
 
   // 진단 상태
@@ -148,7 +148,7 @@ export default function PatientDetailPage() {
     setPrescSubmitting(false)
     if (res.ok) {
       setShowPrescriptionForm(false)
-      setPrescForm({ visit_date: '', prescription: '', treatment_notes: '', next_visit_date: '' })
+      setPrescForm({ visit_date: '', prescription: '', treatment_notes: '' })
       reloadPatient()
     }
   }
@@ -223,7 +223,6 @@ export default function PatientDetailPage() {
       visit_date: t.visit_date ?? '',
       prescription: t.prescription ?? '',
       treatment_notes: t.treatment_notes ?? '',
-      next_visit_date: t.next_visit_date ?? '',
     })
     setShowPrescriptionForm(false)
   }

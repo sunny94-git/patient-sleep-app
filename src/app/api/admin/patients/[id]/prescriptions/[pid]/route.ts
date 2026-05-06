@@ -9,10 +9,12 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { pid } = await params
   const body = await request.json()
+  const { visit_date, prescription, treatment_notes } = body
+  const updateData = { visit_date, prescription: prescription || null, treatment_notes: treatment_notes || null }
 
   const { data, error: dbErr } = await supabase
     .from('treatment_records')
-    .update(body)
+    .update(updateData)
     .eq('id', pid)
     .select()
     .single()
