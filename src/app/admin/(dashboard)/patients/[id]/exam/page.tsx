@@ -16,20 +16,80 @@ interface ExamForm {
   exam_date: string
   exam_type: string
   summary: string
-  result_data: string
+  fields: Record<string, string>
 }
 
 const EXAM_TYPES = ['HRV', 'InBody', 'QEEG']
 
-const EXAM_TEMPLATES: Record<string, Record<string, string | number>> = {
-  HRV: { SDNN: 0, RMSSD: 0, LF: 0, HF: 0, LF_HF_ratio: 0, mean_HR: 0 },
-  InBody: { weight_kg: 0, muscle_kg: 0, fat_kg: 0, fat_pct: 0, BMI: 0, InBody_score: 0 },
-  QEEG: { delta_pct: 0, theta_pct: 0, alpha_pct: 0, beta_pct: 0, gamma_pct: 0 },
+const EXAM_FIELDS: Record<string, { key: string; label: string; unit?: string }[]> = {
+  HRV: [
+    { key: 'SDNN', label: 'SDNN', unit: 'ms' },
+    { key: 'RMSSD', label: 'RMSSD', unit: 'ms' },
+    { key: 'LF', label: 'LF' },
+    { key: 'HF', label: 'HF' },
+    { key: 'LF_HF_ratio', label: 'LF/HF 비율' },
+    { key: 'mean_HR', label: '평균 심박수', unit: 'bpm' },
+  ],
+  InBody: [
+    { key: 'weight_kg', label: '체중', unit: 'kg' },
+    { key: 'muscle_kg', label: '근육량', unit: 'kg' },
+    { key: 'fat_kg', label: '체지방량', unit: 'kg' },
+    { key: 'fat_pct', label: '체지방률', unit: '%' },
+    { key: 'BMI', label: 'BMI' },
+    { key: 'InBody_score', label: 'InBody 점수' },
+  ],
+  QEEG: [
+    { key: 'delta_pct', label: 'Delta', unit: '%' },
+    { key: 'theta_pct', label: 'Theta', unit: '%' },
+    { key: 'alpha_pct', label: 'Alpha', unit: '%' },
+    { key: 'beta_pct', label: 'Beta', unit: '%' },
+    { key: 'gamma_pct', label: 'Gamma', unit: '%' },
+  ],
+}
+
+const FIELD_DISPLAY: Record<string, string> = {
+  SDNN: 'SDNN (ms)',
+  RMSSD: 'RMSSD (ms)',
+  LF: 'LF',
+  HF: 'HF',
+  LF_HF_ratio: 'LF/HF 비율',
+  mean_HR: '평균 심박수 (bpm)',
+  weight_kg: '체중 (kg)',
+  muscle_kg: '근육량 (kg)',
+  fat_kg: '체지방량 (kg)',
+  fat_pct: '체지방률 (%)',
+  BMI: 'BMI',
+  InBody_score: 'InBody 점수',
+  delta_pct: 'Delta (%)',
+  theta_pct: 'Theta (%)',
+  alpha_pct: 'Alpha (%)',
+  beta_pct: 'Beta (%)',
+  gamma_pct: 'Gamma (%)',
+}
+
+function emptyFields(type: string): Record<string, string> {
+  return Object.fromEntries((EXAM_FIELDS[type] ?? []).map(f => [f.key, '']))
+}
+
+function recordToFields(data: Record<string, string | number> | null, type: string): Record<string, string> {
+  const base = emptyFields(type)
+  if (!data) return base
+  return Object.fromEntries(Object.entries(base).map(([k]) => [k, data[k] != null ? String(data[k]) : '']))
+}
+
+function fieldsToRecord(fields: Record<string, string>): Record<string, number | null> {
+  return Object.fromEntries(
+    Object.entries(fields).map(([k, v]) => [k, v === '' ? null : Number(v)])
+  )
 }
 
 function formatDate(str: string) {
   return str.slice(0, 10).replace(/-/g, '.')
 }
+
+const EMPTY_FORM = (type = 'HRV'): ExamForm => ({
+  exam_date: '', exam_type: type, summary: '', fields: emptyFields(type),
+})
 
 export default function AdminExamPage() {
   const { id } = useParams<{ id: string }>()
@@ -39,10 +99,9 @@ export default function AdminExamPage() {
   const [activeType, setActiveType] = useState('HRV')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<ExamForm>({ exam_date: '', exam_type: 'HRV', summary: '', result_data: JSON.stringify(EXAM_TEMPLATES.HRV, null, 2) })
+  const [form, setForm] = useState<ExamForm>(EMPTY_FORM())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [jsonError, setJsonError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchData = () => {
@@ -55,22 +114,16 @@ export default function AdminExamPage() {
 
   useEffect(() => { fetchData() }, [id])
 
-  const setF = (k: keyof ExamForm, v: string) => {
-    setForm(prev => {
-      const next = { ...prev, [k]: v }
-      if (k === 'exam_type' && !editingId) {
-        next.result_data = JSON.stringify(EXAM_TEMPLATES[v] ?? {}, null, 2)
-      }
-      return next
-    })
-    if (k === 'result_data') setJsonError('')
-  }
+  const setField = (key: string, value: string) =>
+    setForm(prev => ({ ...prev, fields: { ...prev.fields, [key]: value } }))
+
+  const setExamType = (type: string) =>
+    setForm(prev => ({ ...prev, exam_type: type, fields: emptyFields(type) }))
 
   const openNew = () => {
     setEditingId(null)
-    setForm({ exam_date: '', exam_type: 'HRV', summary: '', result_data: JSON.stringify(EXAM_TEMPLATES.HRV, null, 2) })
+    setForm(EMPTY_FORM())
     setError('')
-    setJsonError('')
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -81,57 +134,34 @@ export default function AdminExamPage() {
       exam_date: exam.exam_date,
       exam_type: exam.exam_type,
       summary: exam.summary ?? '',
-      result_data: JSON.stringify(exam.result_data ?? {}, null, 2),
+      fields: recordToFields(exam.result_data, exam.exam_type),
     })
     setError('')
-    setJsonError('')
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleCancel = () => {
-    setShowForm(false)
-    setEditingId(null)
-    setError('')
-    setJsonError('')
-  }
+  const handleCancel = () => { setShowForm(false); setEditingId(null); setError('') }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    let parsedData: Record<string, string | number> | null = null
-    try {
-      parsedData = JSON.parse(form.result_data)
-    } catch {
-      setJsonError('JSON 형식이 올바르지 않습니다.')
-      return
-    }
     setSubmitting(true)
     const payload = {
       exam_date: form.exam_date,
       exam_type: form.exam_type,
       summary: form.summary || null,
-      result_data: parsedData,
+      result_data: fieldsToRecord(form.fields),
     }
-
     const res = editingId
       ? await fetch(`/api/admin/patients/${id}/exam/${editingId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         })
       : await fetch(`/api/admin/patients/${id}/exam`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         })
-
     setSubmitting(false)
-    if (!res.ok) {
-      const d = await res.json()
-      setError(d.error ?? '오류가 발생했습니다.')
-      return
-    }
+    if (!res.ok) { const d = await res.json(); setError(d.error ?? '오류가 발생했습니다.'); return }
     setShowForm(false)
     setEditingId(null)
     fetchData()
@@ -147,6 +177,7 @@ export default function AdminExamPage() {
 
   const filtered = exams.filter(e => e.exam_type === activeType)
   const isEditing = editingId !== null
+  const currentFields = EXAM_FIELDS[form.exam_type] ?? []
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -171,13 +202,40 @@ export default function AdminExamPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">검사 유형 *</label>
-              <select value={form.exam_type} onChange={e => setF('exam_type', e.target.value)} className={inputCls}>
+              <select
+                value={form.exam_type}
+                onChange={e => !isEditing && setExamType(e.target.value)}
+                disabled={isEditing}
+                className={`${inputCls} ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
                 {EXAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="label">검사 날짜 *</label>
-              <input type="date" required value={form.exam_date} onChange={e => setF('exam_date', e.target.value)} className={inputCls} />
+              <input type="date" required value={form.exam_date} onChange={e => setForm(p => ({ ...p, exam_date: e.target.value }))} className={inputCls} />
+            </div>
+          </div>
+
+          {/* 검사 항목 개별 입력 */}
+          <div>
+            <label className="label">검사 결과</label>
+            <div className="grid grid-cols-2 gap-3">
+              {currentFields.map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs text-text-muted mb-1">
+                    {f.label}{f.unit && <span className="text-text-disabled"> ({f.unit})</span>}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0"
+                    value={form.fields[f.key] ?? ''}
+                    onChange={e => setField(f.key, e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -186,21 +244,10 @@ export default function AdminExamPage() {
             <textarea
               rows={2}
               value={form.summary}
-              onChange={e => setF('summary', e.target.value)}
+              onChange={e => setForm(p => ({ ...p, summary: e.target.value }))}
               placeholder="환자가 볼 수 있는 검사 해설 코멘트"
               className={`${inputCls} resize-none`}
             />
-          </div>
-
-          <div>
-            <label className="label">검사 결과 (JSON)</label>
-            <textarea
-              rows={8}
-              value={form.result_data}
-              onChange={e => setF('result_data', e.target.value)}
-              className={`${inputCls} resize-y font-mono text-xs`}
-            />
-            {jsonError && <p className="text-danger text-xs mt-1">{jsonError}</p>}
           </div>
 
           {error && <p className="text-danger text-sm">{error}</p>}
@@ -275,8 +322,8 @@ export default function AdminExamPage() {
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {Object.entries(exam.result_data).map(([k, v]) => (
                     <div key={k} className="bg-bg-secondary rounded-[6px] px-3 py-2">
-                      <p className="text-xs text-text-muted">{k}</p>
-                      <p className="text-sm font-semibold text-text-primary">{String(v)}</p>
+                      <p className="text-xs text-text-muted">{FIELD_DISPLAY[k] ?? k}</p>
+                      <p className="text-sm font-semibold text-text-primary">{v != null ? String(v) : '-'}</p>
                     </div>
                   ))}
                 </div>
